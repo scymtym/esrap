@@ -39,6 +39,9 @@ introspective facilities for development
 support for left-recursive rules
 @end itemize
 
+Esrap is maintained by @email{nikodemus@@random-state.net, Nikodemus
+Siivola} and @email{jmoringe@@uni-bielefeld.de, Jan Moringen}.
+
 Esrap is maintained in Git:
 @example
 git clone git://github.com/nikodemus/esrap.git
