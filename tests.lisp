@@ -220,32 +220,52 @@
 
 ;;; Test conditions
 
+(declaim (special *active*))
+
+(defvar *active* nil)
+
+(defrule maybe-active "foo"
+  (:when *active*))
+
 (test condition.1
   "Test signaling of `esrap-simple-parse-error' conditions for failed
    parses."
   (macrolet
       ((signals-esrap-error ((input position &optional messages) &body body)
-         `(progn
-            (signals (esrap-error)
-              ,@body)
-            (handler-case (progn ,@body)
-              (esrap-error (condition)
-                (is (string= (esrap-error-text condition) ,input))
-                (is (= (esrap-error-position condition) ,position))
-                ,@(when messages
-                    `((let ((report (princ-to-string condition)))
-                        ,@(mapcar (lambda (message)
-                                    `(is (search ,message report)))
-                                  (ensure-list messages))))))))))
+         (once-only (position)
+           `(progn
+              (signals (esrap-error)
+                ,@body)
+              (handler-case (progn ,@body)
+                (esrap-error (condition)
+                  (is (string= (esrap-error-text condition) ,input))
+                  (when ,position
+                    (is (= (esrap-error-position condition) ,position)))
+                  ,@(when messages
+                      `((let ((report (princ-to-string condition)))
+                          ,@(mapcar (lambda (message)
+                                      `(is (search ,message report)))
+                                    (ensure-list messages)))))))))))
+    ;; Rule does not allow empty string.
     (signals-esrap-error ("" 0 ("Could not parse subexpression"
                                 "Encountered at"))
       (parse 'integer ""))
+    ;; Junk at end of input.
     (signals-esrap-error ("123foo" 3 ("Could not parse subexpression"
                                       "Encountered at"))
       (parse 'integer "123foo"))
+    ;; Whitespace not allowed.
     (signals-esrap-error ("1, " 1 ("Incomplete parse."
                                    "Encountered at"))
-      (parse 'list-of-integers "1, "))))
+      (parse 'list-of-integers "1, "))
+    ;; Rule not active at toplevel.
+    (signals-esrap-error ("foo" nil ("Rule" "not active"))
+      (parse 'maybe-active "foo"))
+    ;; Rule not active at subexpression-level.
+    (signals-esrap-error ("ffoo" 1 ("Could not parse subexpression"
+                                    "(not active)"
+                                    "Encountered at"))
+      (parse '(and "f" maybe-active) "ffoo"))))
 
 (test parse.string
   "Test parsing an arbitrary string of a given length."

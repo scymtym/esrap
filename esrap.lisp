@@ -607,7 +607,8 @@ symbols."
 (defstruct error-result)
 
 (defstruct (inactive-rule (:include error-result))
-  name)
+  ;; Name of the rule that was inactive.
+  (rule (required-argument) :type symbol))
 
 (defstruct (failed-parse (:include error-result))
   ;; Expression that failed to match.
@@ -686,29 +687,41 @@ are allowed only if JUNK-ALLOWED is true."
       form))
 
 (defun process-parse-result (result text end junk-allowed)
-  (if (error-result-p result)
-      (if junk-allowed
-          (values nil 0)
-          (if (failed-parse-p result)
-              (labels ((expressions (e)
-                         (when e
-                           (cons (failed-parse-expression e)
-                                 (expressions (failed-parse-detail e))))))
-                (let ((expressions (expressions result)))
-                  (simple-esrap-error text (failed-parse-position result)
-                                      "Could not parse subexpression ~S when ~
-                                       parsing~2&~< Expression ~S~@{~&    ~
-                                       Subexpression ~S~}~:>"
-                                      (lastcar expressions)
-                                      expressions)))
-              (simple-esrap-error text nil "rule ~S not active"
-                                  (inactive-rule-name result))))
-      (let ((position (result-position result)))
-        (values (result-production result)
-                (when (< position end)
-                  (if junk-allowed
-                      position
-                      (simple-esrap-error text position "Incomplete parse.")))))))
+  (cond
+    ;; Successfully parsed something.
+    ((not (error-result-p result))
+     (let ((position (result-position result)))
+       (values
+        (result-production result)
+        (cond
+          ((= position end) nil) ; Consumed all input.
+          (junk-allowed position) ; Did not consume all input; junk is OK.
+          (t (simple-esrap-error text position "Incomplete parse."))))))
+    ;; Did not parse anything, but junk is allowed.
+    (junk-allowed
+     (values nil 0))
+    ;; Did not parse anything and junk is not allowed.
+    ((failed-parse-p result)
+     (labels ((expressions (e)
+                (etypecase e
+                  (null
+                   '())
+                  (inactive-rule
+                   (list (list (inactive-rule-rule e) "(not active)")))
+                  (failed-parse
+                   (cons (list (failed-parse-expression e))
+                         (expressions (failed-parse-detail e)))))))
+       (let ((expressions (expressions result)))
+         (simple-esrap-error text (failed-parse-position result)
+                             "Could not parse subexpression ~{~S~^ ~A~} when ~
+                              parsing~2&~< Expression ~{~S~^ ~A~}~@{~&    ~
+                              Subexpression ~{~S~^ ~A~}~}~:>"
+                             (lastcar expressions)
+                             expressions))))
+    ;; Parse failed because of an inactive rule.
+    (t
+     (simple-esrap-error text nil "Rule ~S not active"
+                         (inactive-rule-rule result)))))
 
 (defmacro defrule (&whole form symbol expression &body options)
   "Define SYMBOL as a nonterminal, using EXPRESSION as associated the parsing expression.
@@ -1067,7 +1080,7 @@ inspection."
   (let* ((*current-rule* symbol)
          ;; Must bind *CURRENT-RULE* before compiling the expression!
          (function (compile-expression expression))
-         (rule-not-active (when condition (make-inactive-rule :name symbol))))
+         (rule-not-active (when condition (make-inactive-rule :rule symbol))))
     (cond ((not condition)
            (named-lambda inactive-rule (text position end)
              (declare (ignore text position end))
