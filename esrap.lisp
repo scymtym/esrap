@@ -712,12 +712,22 @@ are allowed only if JUNK-ALLOWED is true."
 (defmacro defrule (&whole form symbol expression &body options)
   "Define SYMBOL as a nonterminal, using EXPRESSION as associated the parsing expression.
 
+Multiple OPTIONS specifying transforms are composed in the order of
+appearance:
+
+  (:text t)
+  (:function parse-integer)
+  =>
+  (alexandria:compose #'parse-integer #'text)
+
 Following OPTIONS can be specified:
 
   * (:WHEN TEST)
 
     The rule is active only when TEST evaluates to true. This can be used
     to specify optional extensions to a grammar.
+
+    This option can only be supplied once.
 
   * (:CONSTANT CONSTANT)
 
@@ -782,10 +792,17 @@ Following OPTIONS can be specified:
         (guard-seen nil))
     (when options
       (dolist (option options)
-        (flet ((set-transform (trans)
-                 (if transform
-                     (error "Multiple transforms in DEFRULE:~% ~S" form)
-                     (setf transform trans)))
+        (flet ((set-transform (trans/bounds trans/no-bounds
+                               &optional use-start-end? start-end-symbols)
+                 (setf transform
+                       (cond
+                         ((not transform)
+                          trans/bounds)
+                         (use-start-end?
+                          (error "Trying to use ~{~S~^, ~} in composed ~S transformation."
+                                 start-end-symbols use-start-end?))
+                         (t
+                          `(compose ,trans/no-bounds ,transform)))))
                (set-guard (expr test)
                  (if guard-seen
                      (error "Multiple guards in DEFRULE:~% ~S" form)
@@ -802,35 +819,45 @@ Following OPTIONS can be specified:
                      (set-guard expr nil))
                  (set-guard expr `(lambda () ,expr))))
             ((:constant value)
-             (setf transform `(constantly ,value)))
+             (set-transform `(constantly ,value) `(constantly ,value)))
             ((:concat value)
              (note-deprecated :concat :text)
              (when value
-               (setf transform '#'text/bounds)))
+               (set-transform '#'text/bounds '#'text)))
             ((:text value)
              (when value
-               (setf transform '#'text/bounds)))
+               (set-transform '#'text/bounds '#'text)))
             ((:identity value)
              (when value
-               (setf transform '#'identity/bounds)))
+               (set-transform '#'identity/bounds '#'identity)))
             ((:lambda lambda-list &body forms)
              (multiple-value-bind (lambda-list start end ignore)
                  (parse-lambda-list-maybe-containing-&bounds lambda-list)
-               (setf transform
-                     `(lambda (,@lambda-list ,start ,end)
-                        (declare (ignore ,@ignore))
-                        ,@forms))))
+               (apply #'set-transform
+                      `(lambda (,@lambda-list ,start ,end)
+                         (declare (ignore ,@ignore))
+                         ,@forms)
+                      `(lambda (,@lambda-list) ,@forms)
+                      (unless (length= 2 ignore)
+                        (list option
+                              (set-difference (list start end) ignore))))))
             ((:function designator)
-             (setf transform `(lambda/bounds (function ,designator))))
+             (set-transform `(lambda/bounds (function ,designator))
+                            `(function ,designator)))
             ((:destructure lambda-list &body forms)
              (multiple-value-bind (lambda-list start end ignore)
                  (parse-lambda-list-maybe-containing-&bounds lambda-list)
-               (setf transform
-                     (with-gensyms (production)
-                       `(lambda (,production ,start ,end)
-                          (declare (ignore ,@ignore))
-                          (destructuring-bind ,lambda-list ,production
-                            ,@forms))))))
+               (set-transform
+                (with-gensyms (production)
+                  `(lambda (,production ,start ,end)
+                     (declare (ignore ,@ignore))
+                     (destructuring-bind ,lambda-list ,production
+                       ,@forms)))
+                (with-gensyms (production)
+                  `(lambda (,production)
+                     (declare (ignore ,@ignore))
+                     (destructuring-bind ,lambda-list ,production
+                       ,@forms))))))
             ((:around lambda-list &body forms)
              (multiple-value-bind (lambda-list start end ignore)
                  (parse-lambda-list-maybe-containing-&bounds lambda-list)

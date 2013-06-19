@@ -22,7 +22,7 @@
 (in-package :esrap-system)
 
 (defsystem :esrap
-  :version "0.10"
+  :version "0.11"
   :description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
   :licence "MIT"
   :depends-on (:alexandria)
@@ -33,6 +33,8 @@
                (:static-file "README")))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
+  ;; Since version 0.11
+  (pushnew :esrap.multiple-transforms *features*)
   ;; Since version 0.10
   (pushnew :esrap.can-handle-left-recursion *features*))
 
