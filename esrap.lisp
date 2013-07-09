@@ -51,9 +51,11 @@
    #:change-rule
    #:defrule
    #:describe-grammar
+   #:describe-terminal
    #:esrap-error
    #:esrap-error-position
    #:esrap-error-text
+   #:expression-start-terminals
    #:find-rule
    #:invalid-expression-error
    #:invalid-expression-error-expression
@@ -1224,6 +1226,163 @@ but clause heads designate kinds of expressions instead of types. See
        (setf seen (%expression-direct-dependencies subexpr seen))))
     ((not * + ? & ! predicate)
      (%expression-direct-dependencies (second expression) seen))))
+
+(defun expression-start-terminals (expression)
+  "Return a list of terminals or tree of expressions with which a text
+   parsable by EXPRESSION can start.
+
+   A tree instead of a list is returned when EXPRESSION contains
+   semantic predicates, NOT or !. Elements in the returned list or
+   tree are
+
+   * case (in)sensitive characters, character ranges,
+     case (in)sensitive strings, function terminals
+   * semantic predicates represented as
+
+       (PREDICATE-NAME NESTED-ELEMENTS)
+
+     where NESTED-ELEMENTS is the list of start terminals of the
+     expression to which PREDICATE-NAME is applied.
+   * NOT and ! expressions are represented as
+
+       ({not,!} NESTED-ELEMENTS)
+
+     where NESTED-ELEMENTS is the list of start terminals of the
+     negated expression.
+
+   The (outermost) list is sorted likes this:
+
+   1. string terminals
+   2. character terminals
+   3. the CHARACTER wildcard terminal
+   4. semantic predicates
+   5. everything else"
+  (labels ((rec (expression seen)
+             (expression-case expression
+               ((character string character-ranges function terminal)
+                (list expression))
+               (predicate
+                (when-let ((result (rec/sorted (second expression) seen)))
+                  (list (list (first expression) result))))
+               (nonterminal
+                (unless (member expression seen :test #'equal)
+                  (when-let ((rule (find-rule expression)))
+                    (rec (rule-expression rule) (list* expression seen)))))
+               ((not !)
+                (when-let ((result (rec/sorted (second expression) seen)))
+                  (list (list (first expression) result))))
+               ((+ &)
+                (rec (second expression) seen))
+               ((? *)
+                (values (rec (second expression) seen) t))
+               (and
+                (let ((result '()))
+                  (dolist (sub-expression (rest expression) result)
+                    (multiple-value-bind (sub-start-terminals optionalp)
+                        (rec sub-expression seen)
+                      (when sub-start-terminals
+                        (appendf result sub-start-terminals)
+                        (unless optionalp
+                          (return result)))))))
+               (or
+                (mapcan (rcurry #'rec seen) (rest expression)))))
+           (rec/without-duplicates (expression seen)
+             (remove-duplicates (rec expression seen) :test #'equal))
+           (rec/sorted (expression seen)
+             (stable-sort (rec/without-duplicates expression seen)
+                          #'expression<)))
+    (rec/sorted expression '())))
+
+(defun expression< (left right)
+  (or (and (typep left  'string)
+           (typep right '(not string)))
+      (and (typep left  'string)
+           (string-lessp left right))
+      (and (typep left  'character)
+           (typep right '(not (or string character))))
+      (and (typep left  'character)
+           (typep right 'character)
+           (char-lessp left right))
+      (and (typep left  '(eql character))
+           (typep left  '(not (eql character))))
+      (and (typep left  '(cons predicate-name))
+           (typep right '(not (or string character (eql character)
+                                  (cons predicate-name)))))
+      (typep right '(not (or string character (eql character)
+                             (cons predicate-name))))))
+
+(defun describe-terminal (terminal &optional (stream *standard-output*))
+  "Print a description of TERMINAL onto STREAM.
+
+   In additional to actual terminals, TERMINAL can be of the forms
+
+     (PREDICATE-NAME TERMINALS)
+     ({not,!} TERMINALS)
+
+   (i.e. as produced by EXPRESSION-START-TERMINALS)."
+  (labels
+      ((output (format-control &rest format-arguments)
+         (apply #'format stream format-control format-arguments))
+       (rec/sub-expression (sub-expression prefix separator)
+         (output prefix (length sub-expression))
+         (rec (first sub-expression))
+         (loop :for terminal :in (rest sub-expression)
+            :do (output separator) (rec terminal)))
+       (rec (terminal)
+         (expression-case terminal
+           (character
+            (output "any character"))
+           (string
+            (output "a string of length ~D" (second terminal)))
+           (character-ranges
+            (output "a character in ~{[~{~C-~C~}]~^ or ~}"
+                    (rest terminal)))
+           (function
+            (output "a string that can be parsed by the function ~S"
+                    (second terminal)))
+           (terminal
+            (labels ((rec (thing)
+                       (etypecase thing
+                         (character
+                          ;; For non-graphic or whitespace characters,
+                          ;; just print the name.
+                          (output "the character ~:[~*~A~:;~A (~A)~]"
+                                  (and (graphic-char-p thing)
+                                       (not (member thing '(#\Space #\Tab #\Newline))))
+                                  thing (char-name thing)))
+                         (string
+                          (if (length= 1 thing)
+                              (rec (char thing 0))
+                              (output "the string ~S" thing)))
+                         ((cons (eql ~))
+                          (rec (second thing))
+                          (output ", disregarding case")))))
+              (rec terminal)))
+           ((not !)
+            (let ((sub-expression (second terminal)))
+              (typecase sub-expression
+                ((cons (eql character) null)
+                 (output "<end of input>"))
+                (t
+                 (output "anything but")
+                 (pprint-logical-block (stream sub-expression)
+                   (rec/sub-expression
+                    sub-expression "~[~; ~:; ~5:T~]" "~@:_ and "))))))
+           (predicate
+            (let ((sub-expression (second terminal)))
+              (pprint-logical-block (stream sub-expression)
+                (rec/sub-expression
+                 sub-expression "~[~;~;~:; ~4:T~]" "~@:_ or ")
+                (output "~[~; ~;~:;~@:_~]satisfying ~A"
+                        (length sub-expression) (first terminal)))))
+           (t
+            (error "~@<Not a terminal: ~S~@:>" terminal)))))
+    (rec terminal)))
+
+;; For use as ~/esrap:print-terminal/ in format control.
+(defun print-terminal (stream terminal &optional colonp atp)
+  (declare (ignore colonp atp))
+  (describe-terminal terminal stream))
 
 (defun eval-expression (expression text position end)
   (expression-case expression

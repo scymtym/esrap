@@ -307,8 +307,12 @@ See @file{example-left-recursion.lisp} for examples.
 @include include/fun-esrap-rule-expression.texinfo
 @include include/fun-esrap-setf-rule-expression.texinfo
 @include include/fun-esrap-rule-symbol.texinfo
+
 @include include/fun-esrap-trace-rule.texinfo
 @include include/fun-esrap-untrace-rule.texinfo
+
+@include include/fun-esrap-expression-start-terminals.texinfo
+@include include/fun-esrap-describe-terminal.texinfo
 
 @section Error Conditions
 

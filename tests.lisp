@@ -536,7 +536,87 @@
                       (parse-integer x)))))
     (signals simple-error (macroexpand-1 form))))
 
-;; Test README examples
+;;; Test rule introspection
+
+(defrule expression-start-terminals.1
+    (or expression-start-terminals.2 #\a))
+
+(defrule expression-start-terminals.2
+    (or #\c (and (? #\b) expression-start-terminals.1)))
+
+(test expression-start-terminals.smoke
+  (macrolet
+      ((test-case (expression expected)
+         `(is (equal ',expected (expression-start-terminals ,expression)))))
+    (test-case '(and)                              ())
+    (test-case '(or)                               ())
+    (test-case 'character                          (character))
+    (test-case '(string 5)                         ((string 5)))
+    (test-case #\A                                 (#\A))
+    (test-case '(or #\B #\A)                       (#\A #\B))
+    (test-case '(or character #\A)                 (#\A character))
+    (test-case '(or #\A "foo")                     ("foo" #\A))
+    (test-case "foo"                               ("foo"))
+    (test-case '(or "foo" "bar")                   ("bar" "foo"))
+    (test-case '(character-ranges (#\a #\z))       ((character-ranges (#\a #\z))))
+    (test-case '(~ "foo")                          ((~ "foo")))
+    (test-case '#'parse-integer                    (#'parse-integer))
+    (test-case '(digit-char-p (and))               ())
+    (test-case '(digit-char-p character)           ((digit-char-p (character))))
+    (test-case '(or (digit-char-p character) #\a)  (#\a (digit-char-p (character))))
+    (test-case 'expression-start-terminals.1       (#\a #\b #\c))
+    (test-case 'expression-start-terminals.2       (#\a #\b #\c))
+    (test-case 'left-recursion.direct              (#\l #\r))
+    (test-case '(or #\b #\a)                       (#\a #\b))
+    (test-case '(and #\a #\b)                      (#\a))
+    (test-case '(and (or #\a #\b) #\c)             (#\a #\b))
+    (test-case '(and (? #\a) #\b)                  (#\a #\b))
+    (test-case '(and (? #\a) (? #\b) (or #\d #\c)) (#\a #\b #\c #\d))
+    (test-case '(and (and) #\a)                    (#\a))
+    (test-case '(not (or #\a #\b))                 ((not (#\a #\b))))
+    (test-case '(not character)                    ((not (character))))
+    (test-case '(! (or #\a #\b))                   ((! (#\a #\b))))
+    (test-case '(! character)                      ((! (character))))
+    (test-case '(& #\a)                            (#\a))
+    (test-case '(* #\a)                            (#\a))
+    (test-case '(+ #\a)                            (#\a))))
+
+(test describe-terminal.smoke
+  (macrolet
+      ((test-case (terminal expected)
+         `(is (string= ,expected (with-output-to-string (stream)
+                                   (describe-terminal ,terminal stream))))))
+    (test-case 'character  "any character")
+    (test-case '(string 5) "a string of length 5")
+    (test-case #\a         (format nil "the character a (~A)" (char-name #\a)))
+    (test-case #\Space     "the character Space")
+    (test-case '(~ #\a)    (format nil "the character a (~A), disregarding case"
+                                   (char-name #\a)))
+    (test-case "f"         (format nil "the character f (~A)" (char-name #\f)))
+    (test-case "foo"       "the string \"foo\"")
+    (test-case '(~ "foo")  "the string \"foo\", disregarding case")
+    (test-case '(character-ranges (#\a #\z))
+               "a character in [a-z]")
+    (test-case '#'parse-integer
+               "a string that can be parsed by the function PARSE-INTEGER")
+    (test-case '(digit-char-p (character))
+               "any character satisfying DIGIT-CHAR-P")
+    (test-case '(digit-char-p ((~ "foo")))
+               "the string \"foo\", disregarding case satisfying DIGIT-CHAR-P")
+    (test-case '(not (#\a #\b))
+               (format nil "anything but the character a (~A) and the ~
+                            character b (~A)"
+                       (char-name #\a) (char-name #\b)))
+    (test-case '(not (character)) "<end of input>")
+    (test-case '(! (#\a #\b))
+               (format nil "anything but the character a (~A) and the ~
+                            character b (~A)"
+                       (char-name #\a) (char-name #\b)))))
+
+(test describe-terminal.condition
+  (signals error (describe-terminal '(and #\a #\b))))
+
+;;; Test README examples
 
 (test examples-from-readme.foo
   "README examples related to \"foo+\" rule."
