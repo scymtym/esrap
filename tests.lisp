@@ -176,7 +176,7 @@
 
 (test left-recursion.direct.condition
   "Test signaling of `left-recursion' condition if requested."
-  (let ((*error-on-left-recursion* t))
+  (let ((*on-left-recursion* :error))
     (signals (left-recursion)
       (parse 'left-recursion.direct "l"))
     (handler-case (parse 'left-recursion.direct "l")
@@ -204,7 +204,7 @@
 
 (test left-recursion.indirect.condition
   "Test signaling of `left-recursion' condition if requested."
-  (let ((*error-on-left-recursion* t))
+  (let ((*on-left-recursion* :error))
     (signals (left-recursion)
       (parse 'left-recursion.indirect.1 "l"))
     (handler-case (parse 'left-recursion.indirect.1 "l")
@@ -422,15 +422,16 @@
 
 (test example-left-recursion.left-associative
   "Left associate grammar from example-left-recursion.lisp."
-  ;; Should be parsable without
-  (let ((*error-on-left-recursion* t))
+  ;; This grammar should work without left recursion.
+  (let ((*on-left-recursion* :error))
     (is (equal (parse 'left-recursive-grammars:la-expr "1*2+3*4+5")
                '(+ (* 1 2) (+ (* 3 4) 5))))))
 
 (test example-left-recursion.right-associative
   "Right associate grammar from example-left-recursion.lisp."
-  ;; This grammar should
-  (let ((*error-on-left-recursion* t))
+  ;; This grammar combination of grammar and input would require left
+  ;; recursion.
+  (let ((*on-left-recursion* :error))
     (signals left-recursion
       (parse 'left-recursive-grammars:ra-expr "1*2+3*4+5")))
 

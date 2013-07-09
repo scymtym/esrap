@@ -44,7 +44,7 @@
    #:! #:? #:+ #:* #:& #:~
    #:character-ranges
 
-   #:*error-on-left-recursion*
+   #:*on-left-recursion*
 
    #:add-rule
    #:call-transform
@@ -162,8 +162,8 @@ LEFT-RECURSION-NONTERMINAL names the symbol for which left recursion
 was detected, and LEFT-RECURSION-PATH lists nonterminals of which the
 left recursion cycle consists.
 
-Note: This error is only signaled if *ERROR-ON-LEFT-RECURSION* is
-bound to a non-NIL value."))
+Note: This error is only signaled if *ON-LEFT-RECURSION* is bound
+to :ERROR."))
 
 (defmethod print-object :before ((condition left-recursion) stream)
   (format stream "Left recursion in nonterminal ~S. ~_Path: ~
@@ -180,14 +180,17 @@ bound to a non-NIL value."))
 
 ;;; Miscellany
 
-(declaim (special *error-on-left-recursion*))
+(deftype left-recursion-policy ()
+  '(or null (eql :error)))
 
-(defvar *error-on-left-recursion* nil
-  "This special variable can be used to control Esrap's behavior with
-respect to allowing left recursion.
+(declaim (type left-recursion-policy *on-left-recursion*))
 
-When non-NIL, PARSE signals an error when it encounters a left
-recursive rule. Otherwise the rule is processed.
+(defvar *on-left-recursion* nil
+  "This special variable controls Esrap's behavior with respect to
+allowing left recursion.
+
+When :ERROR, PARSE signals a LEFT-RECURSION error when it encounters a
+left recursive rule. Otherwise the rule is processed.
 
 Note: when processing left recursive rules, linear-time guarantees
 generally no longer hold.")
@@ -538,7 +541,7 @@ symbols."
            ;; call-stack).
            ((left-recursion-result-p ,result)
             ;; If error on left-recursion has been requested, do that.
-            (when *error-on-left-recursion*
+            (when (eq *on-left-recursion* :error)
               (left-recursion ,text,position ,symbol
                               (reverse (mapcar #'left-recursion-result-rule
                                                *nonterminal-stack*))))

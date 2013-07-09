@@ -231,8 +231,9 @@ The simplest @emph{indirect left recursive} rule is of the form
 
 Esrap can handle both kinds of left recursive rules, but the linear-time
 guarantee generally no longer holds in such cases. The special variable
-@code{*error-on-left-recursion*} can be used to control Esrap's behavior
-with respect to allowing left recursion.
+@code{*on-left-recursion*} can be set to either @code{nil} or
+@code{:error} to control Esrap's behavior with respect to allowing left
+recursion.
 
 @chapter Dictionary
 
@@ -261,7 +262,7 @@ with respect to allowing left recursion.
 
 @section Error Conditions
 
-@include include/var-esrap-star-error-on-left-recursion-star.texinfo
+@include include/var-esrap-star-on-left-recursion-star.texinfo
 
 @include include/condition-esrap-esrap-error.texinfo
 @include include/condition-esrap-left-recursion.texinfo
