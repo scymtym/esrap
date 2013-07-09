@@ -54,6 +54,7 @@
    #:esrap-error
    #:esrap-error-position
    #:esrap-error-text
+   #:expression-start-terminals
    #:find-rule
    #:invalid-expression-error
    #:invalid-expression-error-expression
@@ -1224,6 +1225,87 @@ but clause heads designate kinds of expressions instead of types. See
        (setf seen (%expression-direct-dependencies subexpr seen))))
     ((not * + ? & ! predicate)
      (%expression-direct-dependencies (second expression) seen))))
+
+(defun expression-start-terminals (expression &optional rule)
+  (labels ((result (result &optional rule)
+             (list (if rule (list result rule) result)))
+           (rec (expression &optional rule)
+             (expression-case expression
+               ((character string character-ranges function terminal)
+                (result expression rule))
+               (predicate
+                (result (list (first expression) (rec (second expression)))
+                        rule))
+               (nonterminal
+                (rec (rule-expression (find-rule expression)) (when rule expression)))
+               ((not !)
+                (result (list (first expression) (rec (second expression)))
+                        rule))
+               ((+ &)
+                (rec (first (rest expression)) rule))
+               ((? *)
+                (values (rec (first (rest expression)) rule) t))
+               (and ;; TODO think about (and (and) "foo")
+                (let ((result '()))
+                  (dolist (sub (rest expression) result)
+                    (multiple-value-bind (te opt?)
+                        (rec sub rule)
+                      (when te
+                        (appendf result te)
+                        (when (not opt?)
+                          (return result)))))))
+               (or
+                (mapcan (rcurry #'rec rule) (rest expression)))))
+           (expression< (left right)
+             (let (#+no (left (first left))
+                   #+no (right (first right)))
+              (or (and (typep left '(cons predicate-name))
+                       (typep right '(not (cons predicate-name))))
+                  (and (typep left 'character)
+                       (typep right '(not (or (cons predicate-name) character))))
+                  (and (typep left 'string)
+                       (typep right '(not (or (cons predicate-name) character string))))))))
+    (stable-sort (remove-duplicates (rec expression rule) :test #'equal)
+                 #'expression<)))
+
+(defun describe-terminal (expression)
+  (flet ((possibly (format-control &rest format-arguments)
+           (if (stringp format-control)
+               (apply #'format nil format-control format-arguments)
+               format-control)))
+    (expression-case expression
+      (character
+       (possibly "any character"))
+      (string
+       (possibly "a string of length ~D" (second expression)))
+      (character-ranges
+       (possibly "a character ~{~{~C - ~C~}~^ or ~}"
+                 (rest expression)))
+      (terminal
+       (labels ((rec (thing)
+                  (etypecase thing
+                    (character
+                     (possibly "the character ~:[~*~A~:;~A (~A)~]"
+                               (and (graphic-char-p thing)
+                                    (not (member thing '(#\Space #\Tab #\Newline))))
+                               thing (char-name thing)))
+                    (string
+                     (if (length= 1 thing)
+                         (rec (aref thing 0))
+                         (possibly "the string ~S" thing)))
+                    ((cons (eql ~))
+                     (possibly "~A, disregarding case"
+                               (rec (second thing)))))))
+         (rec expression)))
+      ((not !)
+       (possibly "anything but ~{~A~^ and ~}"
+                 (mapcar #'describe-terminal (second expression))))
+      (predicate
+       (possibly "~{~A~^ or ~} satisfying ~A"
+                 (mapcar #'describe-terminal (second expression))
+                 (first expression)))
+      (t
+       (error "~@<Not a terminal: ~S~@:>" expression)))))
 
 (defun eval-expression (expression text position end)
   (expression-case expression

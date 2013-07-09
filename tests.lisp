@@ -525,7 +525,32 @@
                       (parse-integer x)))))
     (signals simple-error (macroexpand-1 form))))
 
-;; Test README examples
+;;; Test rule introspection
+
+(defrule expression-start-terminals.1
+    #\a)
+
+(defrule expression-start-terminals.2
+    (or #\c (and (? #\b) expression-start-terminals.1)))
+
+(test expression-start-terminals
+  (macrolet
+      ((test (expression expected)
+         `(is (equal ',expected (expression-start-terminals ,expression)))))
+    (test #\A                                 (#\A))
+    (test "foo"                               ("foo"))
+    (test '(character-ranges (#\a #\z))       ((character-ranges (#\a #\z))))
+    (test '(~ "foo")                          ((~ "foo")))
+    (test '(digit-char-p character)           ((digit-char-p (character))))
+    (test 'expression-start-terminals.1       (#\a))
+    (test 'expression-start-terminals.2       (#\c #\b #\a))
+    (test '(or #\a #\b)                       (#\a #\b))
+    (test '(and #\a #\b)                      (#\a))
+    (test '(and (or #\a #\b) #\c)             (#\a #\b))
+    (test '(and (? #\a) #\b)                  (#\a #\b))
+    (test '(and (? #\a) (? #\b) (or #\c #\d)) (#\a #\b #\c #\d))))
+
+;;; Test README examples
 
 (test examples-from-readme.foo
   "README examples related to \"foo+\" rule."
