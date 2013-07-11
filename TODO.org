@@ -90,5 +90,9 @@ Esrap TODO
    consistent.
 ** TODO Tests for rule tracing functionality
 ** STARTED Reference example files from manual
+** DONE Better error reports
+   For parse errors, in particular "incomplete parse" errors, provide
+   a better description of where the parse actually failed, which rule
+   or rules were involved and what input was expected.
 ** DONE Remove =concat=
 * Bugs

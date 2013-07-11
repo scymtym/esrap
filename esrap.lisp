@@ -56,6 +56,8 @@
    #:esrap-error
    #:esrap-error-position
    #:esrap-error-text
+   #:esrap-parse-error
+   #:esrap-parse-error-result
    #:expression-start-terminals
    #:find-rule
    #:invalid-expression-error
@@ -95,8 +97,7 @@
   (error 'invalid-expression-error :expression expression))
 
 (define-condition esrap-error (parse-error)
-  ((text :initarg :text :initform nil :reader esrap-error-text)
-   (position :initarg :position :initform nil :reader esrap-error-position))
+  ((text :initarg :text :initform nil :reader esrap-error-text))
   (:documentation
    "Signaled when an Esrap parse fails. Use ESRAP-ERROR-TEXT to obtain the
 string that was being parsed, and ESRAP-ERROR-POSITION the position at which
@@ -157,24 +158,47 @@ the error occurred."))
 
     (format stream "~2&<text and position not available>~2%")))
 
-(define-condition simple-esrap-error (esrap-error simple-condition) ())
+(define-condition esrap-parse-error (esrap-error)
+  ((result :initarg :result
+           :type    result
+           :reader  esrap-parse-error-result)
+   (%context :accessor esrap-parse-error-%context
+             :initform nil))
+  (:default-initargs :result (required-argument :result))
+  (:documentation
+   "This error is signaled when a parse attempt fails in a way that ."))
 
-(defmethod print-object ((condition simple-esrap-error) stream)
-  (apply #'format stream
-         (simple-condition-format-control condition)
-         (simple-condition-format-arguments condition)))
+(defmethod esrap-error-position ((condition esrap-parse-error))
+  (result-position (esrap-parse-error-%context condition)))
 
-(declaim (ftype (function (t t t &rest t) (values &optional nil))
-                simple-esrap-error))
-(defun simple-esrap-error (text position format-control &rest format-arguments)
-  (error 'simple-esrap-error
-         :text text
-         :position position
-         :format-control format-control
-         :format-arguments format-arguments))
+(defmethod esrap-parse-error-%context :around ((condition esrap-parse-error))
+  (or (call-next-method)
+      (setf (esrap-parse-error-%context condition)
+            (let ((result (esrap-parse-error-result condition)))
+              (or (result-context result) result)))))
+
+(defmethod print-object ((object esrap-parse-error) stream)
+  (cond
+    (*print-readably*
+     (call-next-method))
+    (*print-escape*
+     (print-unreadable-object (object stream :type t :identity t)
+       (format stream "~@[~S~]~@[ @~D~]"
+               (esrap-parse-error-%context object)
+               (esrap-error-position object))))
+    (t
+     (error-report (esrap-parse-error-%context object) stream))))
+
+(declaim (ftype (function (string result) (values &optional nil))
+                esrap-parse-error))
+(defun esrap-parse-error (text result)
+  (error 'esrap-parse-error
+         :text   text
+         :result result))
 
 (define-condition left-recursion (esrap-error)
-  ((nonterminal :initarg :nonterminal :initform nil :reader left-recursion-nonterminal)
+  ((position :initarg :position :initform nil :reader esrap-error-position)
+   (nonterminal :initarg :nonterminal :initform nil :reader left-recursion-nonterminal)
    (path :initarg :path :initform nil :reader left-recursion-path))
   (:documentation
    "May be signaled when left recursion is detected during Esrap parsing.
@@ -1200,50 +1224,22 @@ happen when :raw t."
   (cond
     ;; Successfully parsed something.
     ((successful-parse-p result)
-     (let ((position (result-position result)))
-       (values
-        (successful-parse-production result)
-        (cond
-          ((= position end) nil) ; Consumed all input.
-          (junk-allowed position) ; Did not consume all input; junk is OK.
-          (t (simple-esrap-error text position "Incomplete parse.")))
-        t)))
+     (with-accessors ((position result-position)
+                      (production successful-parse-production))
+         result
+       (cond
+         ((= position end)                ; Consumed all input.
+          (values production nil t))
+         (junk-allowed                    ; Did not consume all input; junk
+          (values production position t)) ; is OK.
+         (t                               ; Junk is not OK.
+          (esrap-parse-error text result)))))
     ;; Did not parse anything, but junk is allowed.
     (junk-allowed
      (values nil start))
     ;; Did not parse anything and junk is not allowed.
-    ((failed-parse-p result)
-     (labels ((expressions (e)
-                (etypecase e
-                  ((or null successful-parse)
-                   '())
-                  (inactive-rule
-                   (list (list (inactive-rule-rule e) "(not active)")))
-                  ((cons result)
-                   (let ((failures (remove-if-not #'error-result-p e)))
-                     (expressions (extremum failures #'max
-                                            :key #'result-position))))
-                  (failed-parse
-                   ;; The detail slot may contain nil, a condition or
-                   ;; string, or a nested parse error result.
-                   (let ((expression (result-expression e))
-                         (detail (result-detail e)))
-                     (if (typep detail '(or string condition))
-                         (list (list expression
-                                     (format nil "~%~6@T(~A)" detail)))
-                         (cons (list expression)
-                               (expressions detail))))))))
-       (let ((expressions (expressions result)))
-         (simple-esrap-error text (result-position result)
-                             "Could not parse subexpression ~S when ~
-                              parsing~2&~< Expression ~{~S~^ ~A~}~@{~&    ~
-                              Subexpression ~{~S~^ ~A~}~}~:>"
-                             (first (lastcar expressions))
-                             expressions))))
-    ;; Parse failed because of an inactive rule.
-    (t
-     (simple-esrap-error text nil "Rule ~S not active"
-                         (inactive-rule-rule result)))))
+    ((error-result-p result)
+     (esrap-parse-error text result))))
 
 (defmacro defrule (&whole form symbol expression &body options)
   "Define SYMBOL as a nonterminal, using EXPRESSION as associated the parsing expression.

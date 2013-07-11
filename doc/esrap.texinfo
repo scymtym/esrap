@@ -326,6 +326,7 @@ See @file{example-left-recursion.lisp} for examples.
 
 @include include/condition-esrap-esrap-error.texinfo
 @include include/condition-esrap-left-recursion.texinfo
+@include include/condition-esrap-esrap-parse-error.texinfo
 
 @include include/condition-esrap-undefined-rule-error.texinfo
 

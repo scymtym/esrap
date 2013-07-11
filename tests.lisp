@@ -36,9 +36,11 @@
      (with-compilation-unit (:override t)
        ,@body)))
 
-(defun call-expecting-signals-esrap-error (thunk input position
+(defun call-expecting-signals-esrap-error (thunk input condition position
                                            &optional messages)
-  (signals (esrap-error) (funcall thunk))
+  (ecase condition
+    (esrap-parse-error
+     (signals (esrap-parse-error) (funcall thunk))))
   (handler-case (funcall thunk)
     (esrap-error (condition)
       (is (string= (esrap-error-text condition) input))
@@ -56,9 +58,11 @@
               messages)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro signals-esrap-error ((input position &optional messages) &body body)
+  (defmacro signals-esrap-error ((input condition position &optional messages)
+                                 &body body)
     `(call-expecting-signals-esrap-error
-      (lambda () ,@body) ,input ,position (list ,@(ensure-list messages)))))
+      (lambda () ,@body) ,input
+      ',condition ,position (list ,@(ensure-list messages)))))
 
 ;;; defrule tests
 
@@ -290,7 +294,7 @@
   "Test using PARSE-A as a terminal."
   (handler-case
       (parse 'function-terminals.parse-5-as "aaaab")
-    (esrap-error (condition)
+    (esrap-parse-error (condition)
       (is (eql 4 (esrap-error-position condition)))
       (is (search "Expected \"a\"." (princ-to-string condition))))))
 
@@ -309,7 +313,7 @@
 
 (test function-terminals.nested-parse.condition
   "Test propagation of failure information through function terminals."
-  (signals esrap-error (parse 'function-terminals.nested-parse "bddxa")))
+  (signals esrap-parse-error (parse 'function-terminals.nested-parse "bddxa")))
 
 (defun function-terminals.without-consuming (text position end)
   (declare (ignore end))
@@ -411,9 +415,9 @@
 (test condition.maybe-active
   "Rule not active at toplevel."
   (flet ((do-it () (parse 'condition.maybe-active "foo"))) ; TODO avoid redundancy
-    (signals esrap-error (do-it))
+    (signals esrap-parse-error (do-it))
     (handler-case (do-it)
-      (esrap-error (condition)
+      (esrap-parse-error (condition)
         (search "Rule CONDITION.MAYBE-ACTIVE not active"
                 (princ-to-string condition)))))
 
@@ -423,9 +427,9 @@
   (finishes (parse 'condition.always-active "foo"))
 
   (flet ((do-it () (parse 'condition.never-active "foo")))
-    (signals esrap-error (do-it))
+    (signals esrap-parse-error (do-it))
     (handler-case (do-it)
-      (esrap-error (condition)
+      (esrap-parse-error (condition)
         (search "Rule CONDITION.NEVER-ACTIVE not active"
                 (princ-to-string condition))))))
 
@@ -454,58 +458,89 @@
                       (parse 'integer "1" :junk-allowed t :raw t))))))
 
 (test condition.misc
-  "Test signaling of `esrap-simple-parse-error' conditions for failed
+  "Test signaling of `esrap-parse-error' conditions for failed
    parses."
   ;; Rule does not allow empty string.
-  (signals-esrap-error ("" 0 ("At end of input"
-                              "^ (Line 1, Column 0, Position 0)"
-                              "Could not parse subexpression"))
+  (signals-esrap-error ("" esrap-parse-error 0
+                           ("At end of input"
+                            "^ (Line 1, Column 0, Position 0)"
+                            "In context INTEGER:"
+                            "While parsing INTEGER." "INTEGER"
+                            "any character satisfying DIGIT-CHAR-P"))
     (parse 'integer ""))
 
   ;; Junk at end of input.
-  (signals-esrap-error ("123foo" 3 ("At" "^ (Line 1, Column 3, Position 3)"
-                                         "Could not parse subexpression"))
+  (signals-esrap-error ("123foo" esrap-parse-error 3
+                                 ("At" "^ (Line 1, Column 3, Position 3)"
+                                  "In context INTEGER:"
+                                  "While parsing INTEGER." "Expected"
+                                  "any character satisfying DIGIT-CHAR-P"
+                                  "or <end of input>"))
     (parse 'integer "123foo"))
+  (signals-esrap-error ("a" esrap-parse-error 0
+                            ("At" "^ (Line 1, Column 0, Position 0)"
+                             "In context (STRING 0):"
+                             "While parsing (STRING 0)." "Expected"
+                             "<end of input>"))
+    (parse '(string 0) "a"))
 
   ;; Whitespace not allowed.
-  (signals-esrap-error ("1, " 1 ("At" "^ (Line 1, Column 1, Position 1)"
-                                      "Incomplete parse."))
+  (signals-esrap-error ("1, " esrap-parse-error 3
+                              ("At" "^ (Line 1, Column 3, Position 3)"
+                               "In context INTEGER:"
+                               "While parsing DIGITS." "Expected"
+                               "any character satisfying DIGIT-CHAR-P"))
     (parse 'list-of-integers "1, "))
 
   ;; Multi-line input.
   (signals-esrap-error ("1,
-2, " 4 ("At" "1," "^ (Line 2, Column 1, Position 4)" "Incomplete parse."))
+2, " esrap-parse-error 6 ("At" "1," "^ (Line 2, Column 3, Position 6)"
+                          "In context INTEGER:"
+                          "While parsing DIGITS." "Expected"
+                          "any character satisfying DIGIT-CHAR-P"))
     (parse 'list-of-integers "1,
 2, "))
 
   ;; Rule not active at toplevel.
-  (signals-esrap-error ("foo" nil ("Rule" "not active"))
+  (signals-esrap-error ("foo" esrap-parse-error 0
+                              ("At" "^ (Line 1, Column 0, Position 0)"
+                               "In context CONDITION.NEVER-ACTIVE:"
+                               "While parsing CONDITION.NEVER-ACTIVE."
+                               "Problem"
+                               "Rule ESRAP-TESTS::CONDITION.NEVER-ACTIVE is not active"))
     (parse 'condition.never-active "foo"))
 
   ;; Rule not active at subexpression-level.
-  (signals-esrap-error ("ffoo" 1 ("At" "(Line 1, Column 1, Position 1)"
-                                       "Could not parse subexpression"
-                                       "(not active)"))
+  (signals-esrap-error ("ffoo" esrap-parse-error 1
+                               ("At" "^ (Line 1, Column 1, Position 1)"
+                                "In context CONDITION.NEVER-ACTIVE:"
+                                "While parsing CONDITION.NEVER-ACTIVE."
+                                "Problem"
+                                "Rule ESRAP-TESTS::CONDITION.NEVER-ACTIVE is not active"))
     (parse '(and "f" condition.never-active) "ffoo"))
 
   ;; Failing function terminal.
-  (signals-esrap-error ("(1 2" 0 ("At" "(Line 1, Column 0, Position 0)"
-                                       "FUNCTION-TERMINALS.INTEGER"))
+  (signals-esrap-error ("(1 2" esrap-parse-error 0
+                               ("At" "^ (Line 1, Column 0, Position 0)"
+                                "In context FUNCTION-TERMINALS.INTEGER:"
+                                "While parsing FUNCTION-TERMINALS.INTEGER."
+                                "Expected:"
+                                "a string that can be parsed by the function"))
     (parse 'function-terminals.integer "(1 2")))
 
 (test parse.string
   "Test parsing an arbitrary string of a given length."
   (is (equal "" (parse '(string 0) "")))
   (is (equal "aa" (parse '(string 2) "aa")))
-  (signals esrap-error (parse '(string 0) "a"))
-  (signals esrap-error (parse '(string 2) "a"))
-  (signals esrap-error (parse '(string 2) "aaa")))
+  (signals esrap-parse-error (parse '(string 0) "a"))
+  (signals esrap-parse-error (parse '(string 2) "a"))
+  (signals esrap-parse-error (parse '(string 2) "aaa")))
 
 (test parse.case-insensitive
   "Test parsing an arbitrary string of a given length."
   (dolist (input '("aabb" "AABB" "aAbB" "aaBB" "AAbb"))
     (unless (every #'lower-case-p input)
-      (signals esrap-error (parse '(* (or #\a #\b)) input)))
+      (signals esrap-parse-error (parse '(* (or #\a #\b)) input)))
     (is (equal "aabb" (text (parse '(* (or (~ #\a) (~ #\b))) input))))
     (is (equal "AABB" (text (parse '(* (or (~ #\A) (~ #\B))) input))))
     (is (equal "aaBB" (text (parse '(* (or (~ #\a) (~ #\B))) input))))))
@@ -926,7 +961,12 @@
   (let ((input "if foo:
 bla
 "))
-    (signals-esrap-error (input 0 ("Expected indent"))
+    (signals-esrap-error (input esrap-parse-error 0
+                                ("In context INDENTED-BLOCK:"
+                                 "While parsing INDENTED-BLOCK."
+                                 "Problem:" "Expected indent"
+                                 "Expected:"
+                                 "a string that can be parsed by the function"))
       (parse 'esrap-example.function-terminals:indented-block input))))
 
 (test example-function-terminals.read.smoke
@@ -946,7 +986,7 @@ bla
       (with-standard-io-syntax
         (parse 'esrap-example.function-terminals:common-lisp
                "(list 'i :::love 'lisp"))
-    (esrap-error (condition)
+    (esrap-parse-error (condition)
       ;; Different readers may report this differently.
       (is (<= 9 (esrap-error-position condition) 16))
       ;; Not sure how other lists report this.
