@@ -779,46 +779,86 @@ in which the first two return values cannot indicate failures."
             ,@arguments)))
       form))
 
+(defun print-expression (stream expression &optional colon? at?)
+  (declare (ignore colon? at?))
+  (destructuring-bind (expression (&optional from to) &optional comment) expression
+    (let ((*print-pprint-dispatch* (copy-pprint-dispatch *print-pprint-dispatch*)))
+      (set-pprint-dispatch 'string (lambda (stream x)
+                                     (write-char #\" stream)
+                                     (write-string x stream)
+                                     (write-char #\" stream)))
+      (set-pprint-dispatch 'character (lambda (stream x)
+                                        (if (or (not (graphic-char-p x))
+                                                (member x '(#\Space #\Tab #\Newline)))
+                                            (write-string (char-name x) stream)
+                                            (progn
+                                              (write-char #\" stream)
+                                              (write-char x stream)
+                                              (write-char #\" stream)))))
+      (princ expression stream))
+    #+no (format stream "~@[ ~{from ~D to ~D~}~]~@[ ~A~]"
+            (when from (list from to)) comment)))
+
+;; TODO for incomplete parses: only consider FAILED-PARSE results
+;; behind POSITION
+(defun explain-failed-parse (result text &optional position)
+  ;; Note: this function has to be called when *CACHE* still contains
+  ;; partial results from the failed parse.
+  (labels ((expressions (expression)
+             ;; Return a list of items of the form
+             ;; ((NAME | EXPRESSION) (&optional START END) &optional COMMENT)
+             (etypecase expression
+               (null
+                '())
+               (inactive-rule
+                (list (list (inactive-rule-rule expression) nil "(not active)")))
+               (failed-parse
+                (cons (list (failed-parse-expression expression)
+                            (list (failed-parse-start expression)
+                                  (failed-parse-position expression)))
+                      (expressions (failed-parse-detail expression))))))
+           (results (e)
+             (when e ;; TODO e might be INACTIVE-RULE
+               (cons e (results (failed-parse-detail e)))))
+           (innermost-position (result)
+             (failed-parse-position (lastcar (results result)))))
+    ;; TODO FAILED can be '() when parsing fails due to a single inactive rule
+    (if-let ((failed (or (remove-if (complement #'failed-parse-p)
+                                    (hash-table-values *cache*))
+                         (when (failed-parse-p result)
+                           (list result)))))
+      (let* ((max (reduce #'max failed :key #'innermost-position))
+             (interesting (remove max failed :test #'/= :key #'innermost-position))
+             (foo     (remove-if (lambda (x) (find x (mappend #'results (remove x interesting))))
+                                 interesting))
+             (min (reduce #'min foo :key #'failed-parse-start))
+             (the-rules (remove min foo :test #'/= :key #'failed-parse-start))
+             (attempts (mapcar (compose #'make-parse-attempt #'expressions) the-rules)))
+        (esrap-parse-error text max attempts))
+      ;; No failures.
+      (progn
+        (break (princ-to-string result))
+        (simple-esrap-error text position "Incomplete parse.")))))
+
 (defun process-parse-result (result text start end junk-allowed)
   (cond
     ;; Successfully parsed something.
     ((not (error-result-p result))
-     (let ((position (result-position result)))
-       (values
-        (result-production result)
-        (cond
-          ((= position end) nil) ; Consumed all input.
-          (junk-allowed position) ; Did not consume all input; junk is OK.
-          (t (simple-esrap-error text position "Incomplete parse.")))
-        t)))
+     (with-accessors ((position result-position)
+                      (result result-production)) result
+       (cond
+         ((= position end)            ; Consumed all input.
+          (values result nil t))
+         (junk-allowed                ; Did not consume all input; junk
+          (values result position t)) ; is OK.
+         (t                           ; Junk is not OK.
+          (explain-failed-parse result text position)))))
     ;; Did not parse anything, but junk is allowed.
     (junk-allowed
      (values nil start))
     ;; Did not parse anything and junk is not allowed.
     ((failed-parse-p result)
-     (labels ((expressions (e)
-                (etypecase e
-                  (null
-                   '())
-                  (inactive-rule
-                   (list (list (inactive-rule-rule e) "(not active)")))
-                  (failed-parse
-                   ;; The detail slot may contain nil, a condition or
-                   ;; string, or a nested parse error result.
-                   (let ((expression (failed-parse-expression e))
-                         (detail (failed-parse-detail e)))
-                     (if (typep detail '(or string condition))
-                         (list (list expression
-                                     (format nil "~%~6@T(~A)" detail)))
-                         (cons (list expression)
-                               (expressions detail))))))))
-       (let ((expressions (expressions result)))
-         (simple-esrap-error text (failed-parse-position result)
-                             "Could not parse subexpression ~S when ~
-                              parsing~2&~< Expression ~{~S~^ ~A~}~@{~&    ~
-                              Subexpression ~{~S~^ ~A~}~}~:>"
-                             (first (lastcar expressions))
-                             expressions))))
+     (explain-failed-parse result text))
     ;; Parse failed because of an inactive rule.
     (t
      (simple-esrap-error text nil "Rule ~S not active"

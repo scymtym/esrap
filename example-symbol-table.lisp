@@ -49,7 +49,7 @@
   (:text t))
 
 (defrule type
-    (+ (alphanumericp character))
+    (+ (or (alphanumericp character) (digit-char-p character)))
   (:text t))
 
 (defrule declaration
@@ -84,21 +84,10 @@
     (let ((*symbol-table* (make-symbol-table *symbol-table*)))
       (list* :scope (apply #'append (call-transform))))))
 
-(parse 'scope "{
-  a:int
-  a
-  {
-    a
-    b:double
-    a
-    b
-    {
-      a:string
-      a
-      b
-    }
-    a
-    b
-  }
-  a
-}")
+(parse 'scope
+"{ a:int a { a b:double a b { a@string a b } { a b > } a }")
+;
+
+(parse 'scope
+"{ a:int } @")
+;
