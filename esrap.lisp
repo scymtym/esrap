@@ -54,6 +54,7 @@
    #:esrap-error
    #:esrap-error-position
    #:esrap-error-text
+   #:esrap-parse-error
    #:expression-start-terminals
    #:find-rule
    #:invalid-expression-error
@@ -156,6 +157,82 @@ the error occurred."))
          :position position
          :format-control format-control
          :format-arguments format-arguments))
+
+;; Describes a failed attempt to apply a stack of expressions at
+;; particular respective positions in the input. A failed parse may be
+;; described as one or more failed PARSE-ATTEMPTs starting with one or
+;; more different rules.
+(defstruct (parse-attempt (:constructor make-parse-attempt (expressions)))
+  ;; Elements are of the form
+  ;;
+  ;;   ((NAME | EXPRESSION) (&optional START END) &optional COMMENT)
+  ;;
+  ;; where NAME or EXPRESSION represents a rule or expression which
+  ;; failed at region of the input bounded by START and END. COMMENT
+  ;; is an optional string explaining the failure.
+  (expressions (required-argument) :type list :read-only t))
+
+;; Return the position up to which ATTEMPT consumed the input.
+(defun parse-attempt-position (attempt)
+  (second (second (lastcar (parse-attempt-expressions attempt)))))
+
+;; Starting at the top of the expression stack of ATTEMPT, find and
+;; return the first nonterminal expression. If there is none, return
+;; the top of the stack.
+(defun parse-attempt-nonterminal-expression (attempt)
+  (let ((expressions (parse-attempt-expressions attempt)))
+    (or (find-if (of-type 'nonterminal) expressions
+                 :key #'first :from-end t)
+        (first expressions))))
+
+;; TODO
+(defun parse-attempt-expected (attempt)
+  (mapcar (lambda (x) (list (describe-terminal x) nil)) ; TODO remove second element?
+          (expression-start-terminals
+           (first
+            (find-if (lambda (y) (= (first
+                                     (second
+                                      (lastcar (parse-attempt-expressions attempt))))
+                                    (first (second y))))
+                     (parse-attempt-expressions attempt))))))
+
+(defmethod print-object ((object parse-attempt) stream)
+  (format stream "Could not parse ~/esrap:print-expression/. ~
+                  Expected:~2%     ~{~{~A~@[ [~A]~]~}~^~%  or ~}~2%~
+                  Reached via~2&~
+                  ~<     ~{~/esrap:print-expression/~^~%  -> ~}~>"
+          (parse-attempt-nonterminal-expression object)
+          (parse-attempt-expected object)
+          (parse-attempt-expressions object)))
+
+(define-condition esrap-parse-error (esrap-error)
+  ;; Stores a list of PARSE-ATTEMPT instances which describe zero or
+  ;; more failed attempts to parse the input. This information can be
+  ;; used, for example, to explain how an expression, which failed to
+  ;; parse a piece of the input, was reached or which characters would
+  ;; have been expected.
+  ((attempts :initarg :attempts
+             :type list #|of parse-attempt|#
+             :reader esrap-parse-error-attempts))
+  (:default-initargs :attempts (required-argument :attempts))
+  (:documentation
+   "This error is signaled when a parse attempt fails."))
+
+(defmethod print-object ((object esrap-parse-error) stream)
+  (format stream "~{~A~^~2%Alternatively: ~}"
+          (esrap-parse-error-attempts object)))
+
+(declaim (ftype (function (string non-negative-integer list)
+                          (values nil &optional))
+                esrap-parse-error))
+(defun esrap-parse-error (text position attemps #+no (expression path expected))
+  (error 'esrap-parse-error
+         :text text
+         :position position
+         :attempts attemps
+         #+no (:expression expression
+          :path path
+          :expected expected)))
 
 (define-condition left-recursion (esrap-error)
   ((nonterminal :initarg :nonterminal :initform nil :reader left-recursion-nonterminal)
