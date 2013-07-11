@@ -58,6 +58,7 @@
    #:find-rule
    #:invalid-expression-error
    #:invalid-expression-error-expression
+   #:esrap-error-print-position
    #:left-recursion
    #:left-recursion-nonterminal
    #:left-recursion-path
@@ -92,53 +93,57 @@
 
 (define-condition esrap-error (parse-error)
   ((text :initarg :text :initform nil :reader esrap-error-text)
-   (position :initarg :position :initform nil :reader esrap-error-position))
+   (position :initarg :position :initform nil :reader esrap-error-position)
+   (print-position :accessor esrap-error-print-position :initform t))
   (:documentation
    "Signaled when an Esrap parse fails. Use ESRAP-ERROR-TEXT to obtain the
 string that was being parsed, and ESRAP-ERROR-POSITION the position at which
 the error occurred."))
 
-(defmethod print-object ((condition esrap-error) stream)
-  (if *print-escape*
-      (call-next-method)
-      ;; FIXME: this looks like it won't do the right thing when used as part of a
-      ;; logical block.
-      (when (or (not *print-lines*) (> *print-lines* 1))
-        (if-let ((text (esrap-error-text condition))
-                 (position (esrap-error-position condition)))
-                (let* ((line (count #\Newline text :end position))
-                       (column (- position (or (position #\Newline text
-                                                         :end position
-                                                         :from-end t)
-                                               0)
-                                  1))
-                       ;; FIXME: magic numbers
-                       (start (or (position #\Newline text
-                                            :start (max 0 (- position 32))
-                                            :end (max 0 (- position 24))
-                                            :from-end t)
-                                  (max 0 (- position 24))))
-                       (end (min (length text) (+ position 24)))
-                       (newline (or (position #\Newline text
-                                              :start start
-                                              :end position
-                                              :from-end t)
-                                    start))
-                       (*print-circle* nil))
-                  (format stream "~2&  Encountered at:~%    ~
-                                  ~A~%    ~
-                                  ~V@T^ (Line ~D, Column ~D, Position ~D)~%"
-                          (if (emptyp text)
-                              ""
-                              (subseq text start end))
-                          (- position newline)
-                          (1+ line) (1+ column)
-                          position))
-                (format stream "~2&  <text and position not available>")))))
+(defvar *print-error-position* t)
+
+(defmethod print-object :before ((condition esrap-error) stream)
+  (unless (or *print-escape*
+              (not *print-error-position*)
+              (not (esrap-error-print-position condition)))
+    ;; FIXME: this looks like it won't do the right thing when used as part of a
+    ;; logical block.
+    (when (or (not *print-lines*) (> *print-lines* 1))
+      (if-let ((text (esrap-error-text condition))
+               (position (esrap-error-position condition)))
+        (let* ((line (count #\Newline text :end position))
+               (column (- position (or (position #\Newline text
+                                                 :end position
+                                                 :from-end t)
+                                       0)
+                          1))
+               ;; FIXME: magic numbers
+               (start (or (position #\Newline text
+                                    :start (max 0 (- position 32))
+                                    :end (max 0 (- position 24))
+                                    :from-end t)
+                          (max 0 (- position 24))))
+               (end (min (length text) (+ position 24)))
+               (newline (or (position #\Newline text
+                                      :start start
+                                      :end position
+                                      :from-end t)
+                            start))
+               (*print-circle* nil))
+          (format stream "At~2%~
+                          ~2@T~A~%~
+                          ~2@T~V@T^ (Line ~D, Column ~D, Position ~D)~2%"
+                  (if (emptyp text)
+                      ""
+                      (subseq text start end))
+                  (- position newline)
+                  (1+ line) (1+ column)
+                  position))
+        (format stream "~2&<text and position not available>~2%")))))
 
 (define-condition simple-esrap-error (esrap-error simple-condition) ())
 
-(defmethod print-object :before ((condition simple-esrap-error) stream)
+(defmethod print-object ((condition simple-esrap-error) stream)
   (apply #'format stream
          (simple-condition-format-control condition)
          (simple-condition-format-arguments condition)))
@@ -165,7 +170,7 @@ left recursion cycle consists.
 Note: This error is only signaled if *ON-LEFT-RECURSION* is bound
 to :ERROR."))
 
-(defmethod print-object :before ((condition left-recursion) stream)
+(defmethod print-object ((condition left-recursion) stream)
   (format stream "Left recursion in nonterminal ~S. ~_Path: ~
                   ~{~S~^ -> ~}"
           (left-recursion-nonterminal condition)
