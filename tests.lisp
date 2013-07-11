@@ -354,6 +354,9 @@
 (defrule maybe-active "foo"
   (:when *active*))
 
+(defrule common-prefix-with-integer
+    (and "123" "4"))
+
 (test condition.1
   "Test signaling of `esrap-simple-parse-error' conditions for failed
    parses."
@@ -380,7 +383,10 @@
     ;; Junk at end of input.
     (signals-esrap-error ("123foo" 3 ("Could not parse subexpression"
                                       "Encountered at"))
-      (parse 'integer "123foo"))
+      (parse '(or integer common-prefix-with-integer) "123foo"))
+
+    ;; No nonterminal.
+    (parse '(and "1" (and "2" "3" "4")) "123foo")
     ;; Whitespace not allowed.
     (signals-esrap-error ("1, " 1 ("Incomplete parse."
                                    "Encountered at"))
