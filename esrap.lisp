@@ -549,6 +549,7 @@ symbols."
                 (pushnew (left-recursion-result-rule item)
                          (head-involved-set head))))
             (make-failed-parse :expression ,symbol
+                               :start ,position
                                :position ,position))
            ;; Cache hit without left-recursion.
            (,result
@@ -607,6 +608,7 @@ symbols."
   ;; Expression that failed to match.
   (expression nil :read-only t) ; TODO required?
   ;; Position at which match was attempted.
+  (start (required-argument) :type array-index :read-only t)
   (position (required-argument) :type array-index :read-only t)
   ;; A nested error, closer to actual failure site.
   (detail nil :type (or null string condition error-result) :read-only t))
@@ -1104,6 +1106,7 @@ inspection."
                       (if (error-result-p result)
                           (make-failed-parse
                            :expression symbol
+                           :start position
                            :position (if (failed-parse-p result)
                                          (failed-parse-position result)
                                          position)
@@ -1373,7 +1376,8 @@ but clause heads designate kinds of expressions instead of types. See
          :position limit)
         (make-failed-parse
          :expression `(string ,length)
-         :position position))))
+         :start position
+         :position end))))
 
 (defun eval-character (text position end)
   (if (< position end)
@@ -1382,7 +1386,8 @@ but clause heads designate kinds of expressions instead of types. See
        :position (1+ position))
       (make-failed-parse
        :expression 'character
-       :position position)))
+       :start position
+       :position end)))
 
 (defun compile-character ()
   #'eval-character)
@@ -1414,6 +1419,7 @@ but clause heads designate kinds of expressions instead of types. See
        :production string)
       (make-failed-parse
        :expression string
+       :start position
        :position position)))
 
 (defun eval-terminal (string text position end case-sensitive-p)
@@ -1455,6 +1461,7 @@ but clause heads designate kinds of expressions instead of types. See
          :production production)
         (make-failed-parse
          :expression function
+         :start position
          :position (or end-position position)
          :detail result))))
 
@@ -1490,7 +1497,8 @@ but clause heads designate kinds of expressions instead of types. See
 
 (defun eval-sequence (expression text position end)
   (with-expression (expression (and &rest subexprs))
-    (let (results)
+    (let ((start position)
+          results)
       (dolist (expr subexprs
                (make-result
                 :position position
@@ -1499,6 +1507,7 @@ but clause heads designate kinds of expressions instead of types. See
           (if (error-result-p result)
               (return (make-failed-parse
                        :expression expression
+                       :start start
                        :position position
                        :detail result))
               (setf position (result-position result)))
@@ -1508,7 +1517,8 @@ but clause heads designate kinds of expressions instead of types. See
   (with-expression (expression (and &rest subexprs))
     (let ((functions (mapcar #'compile-expression subexprs)))
       (named-lambda compiled-sequence (text position end)
-          (let (results)
+          (let ((start position)
+                results)
             (dolist (fun functions
                      (make-result
                       :position position
@@ -1517,6 +1527,7 @@ but clause heads designate kinds of expressions instead of types. See
                 (if (error-result-p result)
                     (return (make-failed-parse
                              :expression expression
+                             :start start
                              :position position
                              :detail result))
                     (setf position (result-position result)))
@@ -1530,6 +1541,7 @@ but clause heads designate kinds of expressions instead of types. See
       (dolist (expr subexprs
                (make-failed-parse
                 :expression expression
+                :start position
                 :position (if (failed-parse-p last-error)
                               (failed-parse-position last-error)
                               position)
@@ -1587,6 +1599,7 @@ but clause heads designate kinds of expressions instead of types. See
                                 :production (string c))
                    (make-failed-parse
                     :expression expression
+                    :start position
                     :position position))))))
         (:strings
          ;; If every subexpression is a string, we can represent the whole choise
@@ -1596,6 +1609,7 @@ but clause heads designate kinds of expressions instead of types. See
              (dolist (choise choises
                       (make-failed-parse
                        :expression expression
+                       :start position
                        :position position))
                (let ((len (length choise)))
                  (when (match-terminal-p choise len text position end t)
@@ -1610,6 +1624,7 @@ but clause heads designate kinds of expressions instead of types. See
                  (dolist (fun functions
                           (make-failed-parse
                            :expression expression
+                           :start position
                            :position (if (and last-error
                                               (failed-parse-p last-error))
                                          (failed-parse-position last-error)
@@ -1638,6 +1653,7 @@ but clause heads designate kinds of expressions instead of types. See
        :production (char text position))
       (make-failed-parse
        :expression expr
+       :start position
        :position position)))
 
 (defun eval-negation (expression text position end)
@@ -1681,7 +1697,8 @@ but clause heads designate kinds of expressions instead of types. See
   (with-expression (expression (+ subexpr))
     (let ((function (compile-expression subexpr)))
       (named-lambda compiled-greedy-positive-repetition (text position end)
-        (let* ((last nil) ; TODO multiple-value-bind?
+        (let* ((start position)
+               (last nil) ; TODO multiple-value-bind?
                (results
                 (loop for result = (funcall function text position end)
                      until (error-result-p (setf last result))
@@ -1692,6 +1709,7 @@ but clause heads designate kinds of expressions instead of types. See
                :position position
                :production (mapcar #'result-production results))
               (make-failed-parse
+               :start start
                :position position
                :expression expression
                :detail last)))))))
@@ -1721,6 +1739,7 @@ but clause heads designate kinds of expressions instead of types. See
     (let ((result (eval-expression subexpr text position end)))
       (if (error-result-p result)
           (make-failed-parse
+           :start position
            :position position
            :expression expression
            :detail result)
@@ -1735,6 +1754,7 @@ but clause heads designate kinds of expressions instead of types. See
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
               (make-failed-parse
+               :start position
                :position position
                :expression expression
                :detail result)
@@ -1751,6 +1771,7 @@ but clause heads designate kinds of expressions instead of types. See
           (make-result
            :position position)
           (make-failed-parse
+           :start position
            :expression expression
            :position position)))))
 
@@ -1763,6 +1784,7 @@ but clause heads designate kinds of expressions instead of types. See
               (make-result
                :position position)
               (make-failed-parse
+               :start position
                :expression expression
                :position position)))))))
 
@@ -1773,6 +1795,7 @@ but clause heads designate kinds of expressions instead of types. See
     (let ((result (eval-expression subexpr text position end)))
       (if (error-result-p result)
           (make-failed-parse
+           :start position
            :position position
            :expression expression
            :detail result)
@@ -1780,6 +1803,7 @@ but clause heads designate kinds of expressions instead of types. See
             (if (funcall (symbol-function (car expression)) production)
                 result
                 (make-failed-parse
+                 :start position
                  :position position
                  :expression expression)))))))
 
@@ -1797,6 +1821,7 @@ but clause heads designate kinds of expressions instead of types. See
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
               (make-failed-parse
+               :start position
                :position position
                :expression expression
                :detail result)
@@ -1804,6 +1829,7 @@ but clause heads designate kinds of expressions instead of types. See
                 (if (funcall semantic-function production)
                     result
                     (make-failed-parse
+                     :start position
                      :position position
                      :expression expression)))))))))
 
@@ -1813,6 +1839,7 @@ but clause heads designate kinds of expressions instead of types. See
   (flet ((oops ()
            (make-failed-parse
             :expression expression
+            :start position
             :position position)))
     (if (< position end)
         (let ((char (char text position)))
