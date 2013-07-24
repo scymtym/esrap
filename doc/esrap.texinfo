@@ -216,6 +216,38 @@ semantic predicate produces whatever the subexpression produces.
 @emph{Note: semantic predicates may change in the future to produce
 whatever the predicate function returns.}
 
+@heading Functions as Terminals
+@lisp
+(function function-name)
+@end lisp
+
+@code{function-name} is a symbol naming a global
+function. @code{function-name}'s lambda-list has to be compatible to
+@code{(text position end)} where @code{text} is the whole input and
+@code{position} and @code{end} indicate the maximal subsequence
+@code{function-name} should attempt to parse. A function terminal
+succeeds if @code{function-name} returns two values: an arbitrary
+production and a positive integer greater than @code{position}
+indicating the position up to which @code{text} has been consumed. A
+function terminal fails if either
+@enumerate
+@item
+@code{function-name} returns two values: an ignored value and
+@code{position}. Returning @code{position} indicates that no progress
+has been made.
+@item
+@code{function-name} returns three values: an ignored value, @code{nil}
+or an integer @code{>= position} and a string or a condition explaining
+the failure. In this case, when the second value is not @code{nil}, it
+indicates the exact position of the failure.
+@end enumerate
+
+Note that rules which use functions as terminals do not automatically
+pick up redefinitions of the used functions. For that to happen, the
+rules have to be redefined as well.
+
+See @file{example-function-terminals.lisp} for examples.
+
 @heading Left Recursion
 
 One aspect of designing Esrap rules is @emph{left recursion}. A

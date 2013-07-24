@@ -292,22 +292,24 @@ characters."
 
 (deftype predicate-name ()
   '(and symbol
-        (not (member character-ranges string and or not * + ? & ! ~))))
+        (not (member character-ranges string and or not * + ? & ! ~
+                     function))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defvar *expression-kinds*
-    `((character              . (eql character))
-      (character-ranges       . (cons (eql character-ranges)))
-      (string                 . (cons (eql string) (cons array-length null)))
-      (and                    . (cons (eql and)))
-      (or                     . (cons (eql or)))
+    `((character        . (eql character))
+      (character-ranges . (cons (eql character-ranges)))
+      (string           . (cons (eql string) (cons array-length null)))
+      (and              . (cons (eql and)))
+      (or               . (cons (eql or)))
       ,@(mapcar (lambda (symbol)
                   `(,symbol . (cons (eql ,symbol) (cons t null))))
                 '(not * + ? & !))
-      (terminal               . terminal)
-      (nonterminal            . nonterminal)
-      (predicate              . (cons predicate-name (cons (not null) null)))
-      (t                      . t))
+      (terminal         . terminal)
+      (nonterminal      . nonterminal)
+      (predicate        . (cons predicate-name (cons (not null) null)))
+      (function         . (cons (eql function) (cons symbol null)))
+      (t                . t))
     "Names and corresponding types of acceptable expression
 constructors."))
 
@@ -619,7 +621,7 @@ symbols."
   ;; Position at which match was attempted.
   (position (required-argument) :type array-index)
   ;; A nested error, closer to actual failure site.
-  detail)
+  (detail nil :type (or null string condition error-result)))
 
 ;; This is placed in the cache as a place in which information
 ;; regarding left recursion can be stored temporarily.
@@ -712,14 +714,21 @@ are allowed only if JUNK-ALLOWED is true."
                   (inactive-rule
                    (list (list (inactive-rule-rule e) "(not active)")))
                   (failed-parse
-                   (cons (list (failed-parse-expression e))
-                         (expressions (failed-parse-detail e)))))))
+                   ;; The detail slot may contain nil, a condition or
+                   ;; string, or a nested parse error result.
+                   (let ((expression (failed-parse-expression e))
+                         (detail (failed-parse-detail e)))
+                     (if (typep detail '(or string condition))
+                         (list (list expression
+                                     (format nil "~%~6@T(~A)" detail)))
+                         (cons (list expression)
+                               (expressions detail))))))))
        (let ((expressions (expressions result)))
          (simple-esrap-error text (failed-parse-position result)
-                             "Could not parse subexpression ~{~S~^ ~A~} when ~
+                             "Could not parse subexpression ~S when ~
                               parsing~2&~< Expression ~{~S~^ ~A~}~@{~&    ~
                               Subexpression ~{~S~^ ~A~}~}~:>"
-                             (lastcar expressions)
+                             (first (lastcar expressions))
                              expressions))))
     ;; Parse failed because of an inactive rule.
     (t
@@ -1178,7 +1187,7 @@ but clause heads designate kinds of expressions instead of types. See
   (labels
       ((rec (expression)
          (expression-case expression
-           ((character string terminal nonterminal))
+           ((character string function terminal nonterminal))
            (character-ranges
             (unless (every (of-type 'character-range) (rest expression))
               (invalid-expression-error expression)))
@@ -1188,7 +1197,7 @@ but clause heads designate kinds of expressions instead of types. See
 
 (defun %expression-dependencies (expression seen)
   (expression-case expression
-    ((character string character-ranges terminal)
+    ((character string character-ranges function terminal)
      seen)
     (nonterminal
      (if (member expression seen :test #'eq)
@@ -1206,7 +1215,7 @@ but clause heads designate kinds of expressions instead of types. See
 
 (defun %expression-direct-dependencies (expression seen)
   (expression-case expression
-    ((character string character-ranges terminal)
+    ((character string character-ranges function terminal)
      seen)
     (nonterminal
      (cons expression seen))
@@ -1246,6 +1255,8 @@ but clause heads designate kinds of expressions instead of types. See
      (eval-not-followed-by expression text position end))
     (character-ranges
      (eval-character-ranges expression text position end))
+    (function
+     (eval-terminal-function expression text position end))
     (predicate
      (eval-semantic-predicate expression text position end))))
 
@@ -1266,6 +1277,7 @@ but clause heads designate kinds of expressions instead of types. See
     (&                (compile-followed-by expression))
     (!                (compile-not-followed-by expression))
     (character-ranges (compile-character-ranges expression))
+    (function         (compile-terminal-function expression))
     (predicate        (compile-semantic-predicate expression))))
 
 ;;; Characters and strings
@@ -1329,6 +1341,41 @@ but clause heads designate kinds of expressions instead of types. See
   (let ((length (length string)))
     (named-lambda compiled-terminal (text position end)
       (exec-terminal string length text position end case-sensitive-p))))
+
+(defun exec-terminal-function (function text position end)
+  (declare (type function function))
+  ;; The protocol is as follows: if FUNCTION returns two values and (>
+  ;; END-POSITION POSITION), it succeeded.
+  ;;
+  ;; It failed if one of
+  ;; 1) (= END-POSITION POSITION) (since no progress has been made)
+  ;; 2) FAILURE is non-NIL
+  ;;
+  ;; When FAILURE is non-NIL, it can be a string or a condition. In
+  ;; this case, END-POSITION can indicate the exact position of the
+  ;; failure but is also allowed to be NIL.
+  (multiple-value-bind (production end-position failure)
+      (funcall function text position end)
+    (declare (type (or null non-negative-integer) end-position))
+    (if (or failure
+            (and (integerp end-position) (= end-position position)))
+        (make-failed-parse
+         :expression function
+         :position (or end-position position)
+         :detail failure)
+        (make-result
+         :position (or end-position end)
+         :production production))))
+
+(defun eval-terminal-function (expression text position end)
+  (with-expression (expression (function function))
+    (exec-terminal-function (ensure-function function) text position end)))
+
+(defun compile-terminal-function (expression)
+  (with-expression (expression (function function))
+    (let ((function (ensure-function function)))
+      (named-lambda compiled-terminal-function (text position end)
+        (exec-terminal-function function text position end)))))
 
 ;;; Nonterminals
 

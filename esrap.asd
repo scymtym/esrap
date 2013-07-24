@@ -23,7 +23,7 @@
 (in-package :esrap-system)
 
 (defsystem :esrap
-  :version "0.11"
+  :version "0.12"
   :description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
   :licence "MIT"
   :depends-on (:alexandria)
@@ -31,9 +31,12 @@
                (:static-file "example-sexp.lisp")
                (:static-file "example-symbol-table.lisp")
                (:static-file "example-left-recursion.lisp")
+               (:static-file "example-function-terminals.lisp")
                (:static-file "README")))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
+  ;; Since version 0.12
+  (pushnew :esrap.function-terminals *features*)
   ;; Since version 0.11
   (pushnew :esrap.multiple-transforms *features*)
   ;; Since version 0.10
@@ -45,6 +48,7 @@
   :depends-on (:esrap :eos)
   :serial     t
   :components ((:file "example-left-recursion")
+               (:file "example-function-terminals")
                (:file "tests")))
 
 (defmethod perform ((op test-op) (sys (eql (find-system :esrap))))

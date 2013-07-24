@@ -40,7 +40,11 @@
     (is-invalid-expr (defrule foo '(character-ranges (#\a #\b #\c))))
     (is-invalid-expr (defrule foo '(and (string))))
     (is-invalid-expr (defrule foo '(not)))
-    (is-invalid-expr (defrule foo '(foo)))))
+    (is-invalid-expr (defrule foo '(foo)))
+    (is-invalid-expr (defrule foo '(function)))
+    (is-invalid-expr (defrule foo '(function foo bar)))
+    (is-invalid-expr (defrule foo '(function 1)))
+    (is-invalid-expr (defrule foo '(function (lambda (x) x))))))
 
 ;;;; A few semantic predicates
 
@@ -154,6 +158,77 @@
   (is (equal '("foo(0-3)" "bar(4-7)" "quux(11-15)")
              (parse 'tokens/bounds.2 "foo bar    quux"))))
 
+;;; Function terminals
+
+(defun parse-integer1 (text position end)
+  (parse-integer text :start position :end end :junk-allowed t))
+
+(defrule function-terminals.integer #'parse-integer1)
+
+(test function-terminals.parse-integer
+  "Test using the function PARSE-INTEGER1 as a terminal."
+  (macrolet ((test-case (input expected
+                         &optional
+                         (expression ''function-terminals.integer))
+               `(is (equal ,expected (parse ,expression ,input)))))
+    (test-case "1"  1)
+    (test-case " 1" 1)
+    (test-case "-1" -1)
+    (test-case "-1" '(-1 nil)
+               '(and (? function-terminals.integer) (* character)))
+    (test-case "a"  '(nil (#\a))
+               '(and (? function-terminals.integer) (* character)))))
+
+(defun parse-5-as (text position end)
+  (let ((chars  '())
+        (amount 0))
+    (dotimes (i 5)
+      (let ((char (when (< (+ position i) end)
+                    (aref text (+ position i)))))
+        (unless (eql char #\a)
+          (return-from parse-5-as
+            (values nil (+ position i) "Expected \"a\".")))
+        (push char chars)
+        (incf amount)))
+    (values (nreverse chars) (+ position amount))))
+
+(defrule function-terminals.parse-5-as #'parse-5-as)
+
+(test function-terminals.parse-5-as.smoke
+  "Test using PARSE-A as a terminal."
+  (macrolet ((test-case (input expected
+                         &optional (expression ''function-terminals.parse-5-as))
+               `(is (equal ,expected (parse ,expression ,input)))))
+    (test-case "aaaaa" '(#\a #\a #\a #\a #\a))
+    (test-case "b" '(nil "b") '(and (? function-terminals.parse-5-as) #\b))
+    (test-case "aaaaab" '((#\a #\a #\a #\a #\a) "b")
+               '(and (? function-terminals.parse-5-as) #\b))))
+
+(test function-terminals.parse-5-as.condition
+  "Test using PARSE-A as a terminal."
+  (handler-case
+      (parse 'function-terminals.parse-5-as "aaaab")
+    (esrap-error (condition)
+      (is (eql 4 (esrap-error-position condition)))
+      (is (search "Expected \"a\"." (princ-to-string condition))))))
+
+(defun function-terminals.nested-parse (text position end)
+  (parse '(and #\d function-terminals.nested-parse)
+         text :start position :end end :junk-allowed t))
+
+(defrule function-terminals.nested-parse
+    (or (and #'function-terminals.nested-parse #\a)
+        (and #\b #'function-terminals.nested-parse)
+        #\c))
+
+(test function-terminals.nested-parse
+  "Test a function terminal which itself calls PARSE."
+  (parse 'function-terminals.nested-parse "bddca"))
+
+(test function-terminals.nested-parse.condition
+  "Test propagation of failure information through function terminals."
+  (signals esrap-error (parse 'function-terminals.nested-parse "bddxa")))
+
 ;;; Left recursion tests
 
 (defun make-input-and-expected-result (size)
@@ -265,7 +340,11 @@
     (signals-esrap-error ("ffoo" 1 ("Could not parse subexpression"
                                     "(not active)"
                                     "Encountered at"))
-      (parse '(and "f" maybe-active) "ffoo"))))
+      (parse '(and "f" maybe-active) "ffoo"))
+    ;; Failing function terminal.
+    (signals-esrap-error ("(1 2" 0 ("FUNCTION-TERMINALS.INTEGER"
+                                    "Encountered at"))
+     (parse 'function-terminals.integer "(1 2"))))
 
 (test parse.string
   "Test parsing an arbitrary string of a given length."
@@ -450,6 +529,53 @@
     ("this.x.y"   (:field-access (:field-access "this" "x") "y"))
     ("this.x.m()" (:method-invocation (:field-access "this" "x") "m"))
     ("x[i][j].y"  (:field-access (:array-access (:array-access "x" "i") "j") "y")))))
+
+(test example-function-terminals.indented-block
+  "Context-sensitive parsing via function terminals."
+  (is (equal '("foo" "bar" "quux"
+               (if "foo"
+                   ("bla"
+                    (if "baz"
+                        ("bli" "blo")
+                        ("whoop"))))
+               "blu")
+             (parse 'esrap-example.function-terminals:indented-block
+                    "   foo
+   bar
+   quux
+   if foo:
+    bla
+    if baz:
+       bli
+       blo
+    else:
+     whoop
+   blu
+"))))
+
+(test example-function-terminals.read.smoke
+  "Using CL:READ as a terminal."
+  (macrolet ((test-case (input expected)
+               `(is (equal ,expected
+                           (with-standard-io-syntax
+                             (parse 'esrap-example.function-terminals:common-lisp
+                                    ,input))))))
+    (test-case "(1 2 3)" '(1 2 3))
+    (test-case "foo" 'cl-user::foo)
+    (test-case "#C(1 3/4)" #C(1 3/4))))
+
+(test example-function-terminals.read.condition
+  "Test error reporting in the CL:READ-based rule"
+  (handler-case
+      (with-standard-io-syntax
+        (parse 'esrap-example.function-terminals:common-lisp
+               "(list 'i :::love 'lisp"))
+    (esrap-error (condition)
+      ;; Different readers may report this differently.
+      (is (<= 9 (esrap-error-position condition) 16))
+      ;; Not sure how other lists report this.
+      #+sbcl (is (search "too many colons"
+                         (princ-to-string condition))))))
 
 ;;; Test runner
 

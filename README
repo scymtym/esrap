@@ -8,6 +8,7 @@ supports:
  - semantic predicates
  - introspective facilities (describing grammars, tracing, setting breaks)
  - left-recursive grammars
+ - functions as terminals
 
 Homepage & Documentation:
 
@@ -62,9 +63,14 @@ Syntax overview:
  (& followed-by)           -- does not consume
  (! not-followed-by)       -- does not consume
  (<predicate> expr)        -- semantic parsing
+ (function <function>)     -- call <function> to parse some text
 
- See file example-sexp.lisp for a complete sample grammar and usage,
- and example-symbol-table.lisp for a grammar with lexical scope.
+Example files:
+
+ - example-sexp.lisp: complete sample grammar and usage
+ - example-symbol-table.lisp: grammar with lexical scope
+ - example-left-recursion.lisp: multiple grammars with left recursion
+ - example-function-terminal.lisp: grammars with functions as terminals
 
 Trivial examples:
 
