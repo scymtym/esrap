@@ -1342,7 +1342,7 @@ but clause heads designate kinds of expressions instead of types. See
 (defun compile-nonterminal (symbol)
   (let ((cell (reference-rule-cell symbol *current-rule*)))
     (declare (rule-cell cell))
-    (named-lambda compile-nonterminal (text position end)
+    (named-lambda compiled-nonterminal (text position end)
       (funcall (cell-function cell) text position end))))
 
 ;;; Sequences
