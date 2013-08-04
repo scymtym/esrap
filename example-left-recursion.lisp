@@ -31,8 +31,8 @@
         (list (find-symbol op :cl) left right)
         left)))
 
-(defun test-lambda ()
-  (let ((esrap:*error-on-left-recursion* t))
+(defun test-la ()
+  (let ((*on-left-recursion* :error))
     (assert (equal (parse 'la-expr "1*2+3*4+5")
                    '(+ (* 1 2) (+ (* 3 4) 5))))))
 
@@ -60,7 +60,7 @@
         right)))
 
 (defun test-ra ()
-  (let ((esrap:*error-on-left-recursion* t))
+  (let ((*on-left-recursion* :error))
     (parse 'ra-expr "1*2+3*4+5")) ; |- Error
 
   (assert (equal (parse 'ra-expr "1*2+3*4+5")
