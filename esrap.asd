@@ -25,6 +25,8 @@
 (defsystem :esrap
   :version "0.12"
   :description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
+  :author "Nikodemus Siivola <nikodemus@random-state.net>"
+  :maintainer "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
   :licence "MIT"
   :depends-on (:alexandria)
   :components ((:file "esrap")

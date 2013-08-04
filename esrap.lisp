@@ -4,7 +4,7 @@
 ;;;;
 ;;;; Homepage and documentation:
 ;;;;
-;;;;   http://nikodemus.github.com/esrap/
+;;;;   http://scymtym.github.com/esrap/
 ;;;;
 ;;;; References:
 ;;;;
