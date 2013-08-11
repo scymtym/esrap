@@ -1001,6 +1001,7 @@ break is entered when the rule is invoked."
                              result)))
                        rule)
         (setf (cell-trace-info cell) (list info break)))
+      ;; TODO test this
       (when recursive
         (let ((*trace-stack* (cons symbol *trace-stack*)))
           (dolist (dep (%rule-direct-dependencies (cell-rule cell)))
@@ -1219,7 +1220,7 @@ but clause heads designate kinds of expressions instead of types. See
     (nonterminal
      (cons expression seen))
     ((and or)
-     (dolist (subexpr (cdr expression) seen)
+     (dolist (subexpr (rest expression) seen)
        (setf seen (%expression-direct-dependencies subexpr seen))))
     ((not * + ? & ! predicate)
      (%expression-direct-dependencies (second expression) seen))))
@@ -1598,7 +1599,7 @@ but clause heads designate kinds of expressions instead of types. See
   (with-expression (expression (+ subexpr))
     (let ((function (compile-expression subexpr)))
       (named-lambda compiled-greedy-positive-repetition (text position end)
-        (let* ((last nil)
+        (let* ((last nil) ; TODO multiple-value-bind?
                (results
                 (loop for result = (funcall function text position end)
                      until (error-result-p (setf last result))
