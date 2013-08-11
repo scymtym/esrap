@@ -49,21 +49,21 @@ Licence:
 
 Syntax overview:
 
- <literal>                 -- case-sensitive terminal
- (~ <literal>)             -- case-insensitive terminal
- character                 -- any single character
- (string length)           -- any string of length
- (not expression)          -- complement of expression
- (character-ranges ranges) -- character ranges
+ <literal>                  -- case-sensitive terminal
+ (~ <literal>)              -- case-insensitive terminal
+ character                  -- any single character
+ (string length)            -- any string of length
+ (not expression)           -- complement of expression
+ (character-ranges ranges)  -- character ranges
  (and &rest sequence)
  (or &rest ordered-choices)
- (* greedy-repetition)
- (+ greedy-positive-repetition)
+ (* <expr> [<min> [<max>]]) -- greedy repetition
+ (+ <expr>)                 -- greedy positive repetition
  (? optional)
- (& followed-by)           -- does not consume
- (! not-followed-by)       -- does not consume
- (<predicate> expr)        -- semantic parsing
- (function <function>)     -- call <function> to parse some text
+ (& followed-by)            -- does not consume
+ (! not-followed-by)        -- does not consume
+ (<predicate> expr)         -- semantic parsing
+ (function <function>)      -- call <function> to parse some text
 
 Example files:
 

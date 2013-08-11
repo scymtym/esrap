@@ -304,7 +304,12 @@ characters."
       (or               . (cons (eql or)))
       ,@(mapcar (lambda (symbol)
                   `(,symbol . (cons (eql ,symbol) (cons t null))))
-                '(not * + ? & !))
+                '(not + ? & !))
+      (*                . (cons (eql *)
+                                (cons t (or null
+                                            (cons non-negative-integer
+                                                  (or null
+                                                      (cons non-negative-integer null)))))))
       (terminal         . terminal)
       (nonterminal      . nonterminal)
       (predicate        . (cons predicate-name (cons (not null) null)))
@@ -1207,8 +1212,16 @@ but clause heads designate kinds of expressions instead of types. See
            (character-ranges
             (unless (every (of-type 'character-range) (rest expression))
               (invalid-expression-error expression)))
-           ((and or not * + ? & ! predicate)
-            (mapc #'rec (rest expression))))))
+           ((and or)
+            (mapc #'rec (rest expression)))
+           ((not + ? & ! predicate)
+            (rec (second expression)))
+           (*
+            (rec (second expression))
+            (destructuring-bind (&optional (min 0) (max 0))
+                (nthcdr 2 expression)
+              (unless (<= min max)
+                (invalid-expression-error expression)))))))
     (rec expression)))
 
 (defun %expression-dependencies (expression seen)
@@ -1593,17 +1606,35 @@ but clause heads designate kinds of expressions instead of types. See
   (funcall (compile-greedy-repetition expression) text position end))
 
 (defun compile-greedy-repetition (expression)
-  (with-expression (expression (* subexpr))
+  (with-expression (expression (* subexpr &optional min max))
     (let ((function (compile-expression subexpr)))
-      (named-lambda compiled-greedy-repetition (text position end)
-        (let ((results
-               (loop for result = (funcall function text position end)
-                     until (error-result-p result)
-                     do (setf position (result-position result))
-                     collect result)))
-          (make-result
-           :position position
-           :production (mapcar #'result-production results)))))))
+      (if (or min max)
+          (named-lambda compiled-greedy-repetition (text position end)
+            (multiple-value-bind (results last count)
+                (loop for count from 0
+                      until (and max (= count max))
+                      for result = (funcall function text position end)
+                      until (error-result-p result)
+                      do (setf position (result-position result))
+                      collect result into results
+                      finally (return (values results result count)))
+              (if (<= min count)
+                  (make-result
+                   :position position
+                   :production (mapcar #'result-production results))
+                  (make-failed-parse
+                   :position position
+                   :expression expression
+                   :detail last))))
+          (named-lambda compiled-greedy-repetition (text position end)
+            (let ((results
+                    (loop for result = (funcall function text position end)
+                          until (error-result-p result)
+                          do (setf position (result-position result))
+                          collect result)))
+              (make-result
+               :position position
+               :production (mapcar #'result-production results))))))))
 
 ;;; Greedy positive repetitions
 

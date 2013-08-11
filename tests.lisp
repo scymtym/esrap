@@ -40,6 +40,12 @@
     (is-invalid-expr (defrule foo '(character-ranges (#\a #\b #\c))))
     (is-invalid-expr (defrule foo '(and (string))))
     (is-invalid-expr (defrule foo '(not)))
+    (is-invalid-expr (defrule roo '(*)))
+    (is-invalid-expr (defrule roo '(* bar baz)))
+    (is-invalid-expr (defrule roo '(* bar -1)))
+    (is-invalid-expr (defrule roo '(* bar 0 baz)))
+    (is-invalid-expr (defrule roo '(* bar 0 -1)))
+    (is-invalid-expr (defrule roo '(* bar 1 0)))
     (is-invalid-expr (defrule foo '(foo)))
     (is-invalid-expr (defrule foo '(function)))
     (is-invalid-expr (defrule foo '(function foo bar)))
@@ -427,6 +433,33 @@
     (is (equal "FooBaz" t2e))
     (is (equal "Foo" t3c))
     (is (equal "Foo" t3e))))
+
+;; Repetitions
+
+(test parse.greedy-repetition.unconstrained
+  "TODO"
+  (macrolet
+      ((test (expression input expected-production expected-position)
+         `(is (equal '(,expected-production ,expected-position)
+                     (multiple-value-list
+                      (parse ',expression ,input :junk-allowed t))))))
+    (test (* #\a) ""   ()        nil)
+    (test (* #\a) "a"  ("a")     nil)
+    (test (* #\a) "aa" ("a" "a") nil)))
+
+(test parse.greedy-repetition.constrained
+  "TODO"
+  (macrolet
+      ((test (expression input expected-production expected-position)
+         `(is (equal '(,expected-production ,expected-position)
+                     (multiple-value-list
+                      (parse ',expression ,input :junk-allowed t))))))
+    (test (* #\a 0)   ""   ()        nil)
+    (test (* #\a 0 0) ""   ()        nil)
+    (test (* #\a 0 1) ""   ()        nil)
+    #+no (test (* #\a 1 1) ""   ()        nil nil)
+    (test (* #\a)     "a"  ("a")     nil)
+    (test (* #\a)     "aa" ("a" "a") nil)))
 
 ;;; Test around
 

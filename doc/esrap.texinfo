@@ -158,7 +158,7 @@ of input. A negation produces the character it consumes.
 
 @heading Greedy Repetition
 @lisp
-(* subexpresssion)
+(* subexpresssion [min [max]])
 @end lisp
 
 A greedy repetition always succeeds, consuming all input consumed by
@@ -166,6 +166,8 @@ applying subexpression repeatedly as long as it succeeds.
 
 A greedy repetition produces the productions of the subexpression as a
 list.
+
+TODO
 
 @heading Greedy Positive Repetition
 @lisp
