@@ -1774,15 +1774,13 @@ but clause heads designate kinds of expressions instead of types. See
 (defvar *indentation-hint-table* nil)
 
 (defun hint-slime-indentation ()
-  (let* ((swank (find-package :swank))
-         (tables (when swank
-                   (find-symbol (string '#:*application-hints-tables*) swank))))
-    (when tables
-      (let ((table (make-hash-table :test #'eq)))
-        (setf (gethash 'defrule table)
-              '(4 4 &rest (&whole 2 &lambda &body)))
-        (set tables (cons table (remove *indentation-hint-table* (symbol-value tables))))
-        (setf *indentation-hint-table* table))
-      t)))
+  (when-let* ((swank (find-package :swank))
+              (tables (find-symbol (string '#:*application-hints-tables*) swank))
+              (table (make-hash-table :test #'eq)))
+    (setf (gethash 'defrule table)
+          '(4 4 &rest (&whole 2 &lambda &body)))
+    (set tables (cons table (remove *indentation-hint-table* (symbol-value tables))))
+    (setf *indentation-hint-table* table)
+    t))
 
 (hint-slime-indentation)
