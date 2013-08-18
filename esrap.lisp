@@ -881,7 +881,6 @@ Following OPTIONS can be specified:
                        ,@forms)))
                 (with-gensyms (production)
                   `(lambda (,production)
-                     (declare (ignore ,@ignore))
                      (destructuring-bind ,lambda-list ,production
                        ,@forms))))))
             ((:around lambda-list &body forms)
