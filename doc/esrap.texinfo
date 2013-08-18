@@ -204,6 +204,26 @@ A not-followed-by predicate succeeds if the subexpression does not
 succeed, and @emph{consumes no input}. A not-followed-by predicate
 produces @code{nil}.
 
+@heading Lookbehind
+@lisp
+(< amount subexpression)
+@end lisp
+
+A lookbehind succeeds if @code{subexpression} succeeds at the input
+position reached by moving backward @code{amount} characters from the
+current position and @emph{consumes no input}. A lookbehind produces
+whatever @code{subexpression} produces.
+
+@heading Lookahead
+@lisp
+(> amount subexpression)
+@end lisp
+
+A lookahead succeeds if @code{subexpression} succeeds at the input
+position reached by moving forward @code{amount} characters from the
+current position and @emph{consumes no input}. A lookahead produces
+whatever @code{subexpression} produces.
+
 @heading Semantic Predicates
 @lisp
 (predicate-name subexpression)

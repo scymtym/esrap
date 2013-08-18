@@ -60,8 +60,10 @@ Syntax overview:
  (* greedy-repetition)
  (+ greedy-positive-repetition)
  (? optional)
- (& followed-by)           -- does not consume
- (! not-followed-by)       -- does not consume
+ (& <expr>)                -- followed by <expr>; does not consume
+ (! <expr>)                -- not followed by <expr>; does not consume
+ (< <amount> <expr>)       -- lookbehind <amount> characters; does not consume
+ (> <amount> <expr>)       -- lookahead <amount> characters; does not consume
  (<predicate> expr)        -- semantic parsing
  (function <function>)     -- call <function> to parse some text
 

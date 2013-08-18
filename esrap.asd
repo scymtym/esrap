@@ -23,7 +23,7 @@
 (in-package :esrap-system)
 
 (defsystem :esrap
-  :version "0.12"
+  :version "0.13"
   :description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
   :author "Nikodemus Siivola <nikodemus@random-state.net>"
   :maintainer "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
@@ -37,6 +37,9 @@
                (:static-file "README")))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
+  ;; Since version 0.13
+  (pushnew :esrap.lookahead *features*)
+  (pushnew :esrap.lookbehind *features*)
   ;; Since version 0.12
   (pushnew :esrap.function-terminals *features*)
   ;; Since version 0.11

@@ -191,6 +191,56 @@
   (is (equal '("foo(0-3)" "bar(4-7)" "quux(11-15)")
              (parse 'tokens/bounds.2 "foo bar    quux"))))
 
+;;; Look{ahead, behind}
+
+(defun make-look*-test (expression input expected-production expected-position success?)
+  `(is (equal '(,expected-production ,expected-position ,@(when success? '(t)))
+              (multiple-value-list
+               (parse ',expression ,input :junk-allowed t)))))
+
+(test lookahead.smoke
+  "Smoke test for lookahead expressions."
+  (macrolet
+      ((test (expression input expected-production expected-position
+              &optional (success? t))
+         (make-look*-test
+          expression input expected-production expected-position success?)))
+
+    ;; Some simple cases.
+    (test (> 0 (! character))               ""    nil           nil)
+    (test (> 0 #\a)                         "abc" "a"           0)
+    (test (> 1 #\b)                         "abc" "b"           0)
+    (test (> 2 #\c)                         "abc" "c"           0)
+    (test (> 3 #\d)                         "abc" nil           0 nil)
+    (test (> 3 (! character))               "abc" nil           0)
+    (test (> 4 (! character))               "abc" nil           0 nil)
+    ;; Make sure we can parse something before and after the
+    ;; lookahead.
+    (test (and #\a (> 0 #\b) #\b)           "abc" ("a" "b" "b") 2)
+    (test (and #\a (> 1 #\c) #\b)           "abc" ("a" "c" "b") 2)
+    (test (and #\a (> 2 #\d) #\b)           "abc" nil           0 nil)
+    (test (and #\a (> 2 (! character)) #\b) "abc" ("a" nil "b") 2)))
+
+(test lookbehind.smoke
+  "Smoke test for lookbehind expressions."
+  (macrolet
+      ((test (expression input expected-production expected-position
+              &optional (success? t))
+         (make-look*-test
+          expression input expected-production expected-position success?)))
+
+    ;; Parse some stuff, so we can go back with the lookbehind.
+    (test (and "abc" (< 0 #\d))           "abc" nil         0 nil)
+    (test (and "abc" (< 0 (! character))) "abc" ("abc" nil) nil)
+    (test (and "abc" (< 1 #\c))           "abc" ("abc" "c") nil)
+    (test (and "abc" (< 2 #\b))           "abc" ("abc" "b") nil)
+    (test (and "abc" (< 3 #\a))           "abc" ("abc" "a") nil)
+    (test (and "abc" (< 4 #\a))           "abc" nil         0 nil)
+    ;; Make sure we can parse lookbehind without first parsing
+    ;; something.
+    (test (< 0 #\a)                       "abc" "a"         0)
+    (test (< 1 #\a)                       "abc" nil         0 nil)))
+
 ;;; Function terminals
 
 (defun parse-integer1 (text position end)

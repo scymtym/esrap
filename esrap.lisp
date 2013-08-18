@@ -305,6 +305,11 @@ characters."
       ,@(mapcar (lambda (symbol)
                   `(,symbol . (cons (eql ,symbol) (cons t null))))
                 '(not * + ? & !))
+      ,@(mapcar (lambda (symbol)
+                  `(,symbol . (cons (eql ,symbol)
+                                    (cons non-negative-integer
+                                          (cons t null)))))
+                '(< >))
       (terminal         . terminal)
       (nonterminal      . nonterminal)
       (predicate        . (cons predicate-name (cons (not null) null)))
@@ -1207,8 +1212,12 @@ but clause heads designate kinds of expressions instead of types. See
            (character-ranges
             (unless (every (of-type 'character-range) (rest expression))
               (invalid-expression-error expression)))
-           ((and or not * + ? & ! predicate)
-            (mapc #'rec (rest expression))))))
+           ((and or)
+            (mapc #'rec (rest expression)))
+           ((not * + ? & ! predicate)
+            (rec (second expression)))
+           ((< >)
+            (rec (third expression))))))
     (rec expression)))
 
 (defun %expression-dependencies (expression seen)
@@ -1224,10 +1233,12 @@ but clause heads designate kinds of expressions instead of types. See
                (%expression-dependencies (rule-expression rule) seen)
                seen))))
     ((and or)
-     (dolist (subexpr (cdr expression) seen)
+     (dolist (subexpr (rest expression) seen)
        (setf seen (%expression-dependencies subexpr seen))))
     ((not * + ? & ! predicate)
-     (%expression-dependencies (second expression) seen))))
+     (%expression-dependencies (second expression) seen))
+    ((< >)
+     (%expression-dependencies (third expression) seen))))
 
 (defun %expression-direct-dependencies (expression seen)
   (expression-case expression
@@ -1239,7 +1250,9 @@ but clause heads designate kinds of expressions instead of types. See
      (dolist (subexpr (cdr expression) seen)
        (setf seen (%expression-direct-dependencies subexpr seen))))
     ((not * + ? & ! predicate)
-     (%expression-direct-dependencies (second expression) seen))))
+     (%expression-direct-dependencies (second expression) seen))
+    ((< >)
+     (%expression-direct-dependencies (third expression) seen))))
 
 (defun eval-expression (expression text position end)
   (expression-case expression
@@ -1269,6 +1282,10 @@ but clause heads designate kinds of expressions instead of types. See
      (eval-followed-by expression text position end))
     (!
      (eval-not-followed-by expression text position end))
+    (<
+     (eval-look-behind expression text position end))
+    (>
+     (eval-look-ahead expression text position end))
     (character-ranges
      (eval-character-ranges expression text position end))
     (function
@@ -1292,6 +1309,8 @@ but clause heads designate kinds of expressions instead of types. See
     (?                (compile-optional expression))
     (&                (compile-followed-by expression))
     (!                (compile-not-followed-by expression))
+    (<                (compile-look-behind expression))
+    (>                (compile-look-ahead expression))
     (character-ranges (compile-character-ranges expression))
     (function         (compile-terminal-function expression))
     (predicate        (compile-semantic-predicate expression))))
@@ -1699,6 +1718,46 @@ but clause heads designate kinds of expressions instead of types. See
               (make-failed-parse
                :expression expression
                :position position)))))))
+
+;;; Look{ahead,behind}
+
+(macrolet
+    ((define-look (direction operator position test)
+       (let ((eval-name (symbolicate '#:eval-look- direction))
+             (compile-name (symbolicate '#:compile-look- direction)))
+         `(progn
+            (defun ,eval-name (expression text position end)
+              (with-expression (expression (,operator n subexpr))
+                (let* ((look-position ,position)
+                       (result
+                         (when ,test
+                           (eval-expression subexpr text look-position end))))
+                  (if (or (not result) (error-result-p result))
+                      (make-failed-parse
+                       :expression expression
+                       :position position)
+                      (make-result
+                       :position position
+                       :production (result-production result))))))
+
+            (defun ,compile-name (expression)
+              (with-expression (expression (,operator n subexpr))
+                (let ((function (compile-expression subexpr)))
+                  (named-lambda compiled-look-behind (text position end)
+                    (let* ((look-position ,position)
+                           (result
+                             (when ,test
+                               (funcall function text look-position end))))
+                      (if (or (not result) (error-result-p result))
+                          (make-failed-parse
+                           :expression expression
+                           :position position)
+                          (make-result
+                           :position position
+                           :production (result-production result))))))))))))
+
+  (define-look :behind < (- position n) (>= look-position 0))
+  (define-look :ahead  > (+ position n) (<= look-position end)))
 
 ;;; Semantic predicates
 
