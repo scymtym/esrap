@@ -226,11 +226,25 @@ whatever the predicate function returns.}
 function. @code{function-name}'s lambda-list has to be compatible to
 @code{(text position end)} where @code{text} is the whole input and
 @code{position} and @code{end} indicate the maximal subsequence
-@code{function-name} should attempt to parse. A function terminal
-succeeds if @code{function-name} returns two values: an arbitrary
-production and a positive integer greater than @code{position}
-indicating the position up to which @code{text} has been consumed. A
-function terminal fails if either
+@code{function-name} should attempt to parse.
+
+A function terminal succeeds if either
+@enumerate
+@item
+@code{function-name} returns @code{T} as its third value.
+@item
+@code{function-name} returns @code{nil} as its third value (or returns
+only two values) and @code{nil} as its second value. This indicates that
+the entire remaining input has been consumed.
+@item
+@code{function-name} returns @code{nil} as its third value (or returns
+only two values) and an integer @code{> position} as its second value
+indicating the position up to which @code{text} has been consumed.
+@end enumerate
+When a function terminal succeeds, the first return value is an
+arbitrary production.
+
+A function terminal fails if either
 @enumerate
 @item
 @code{function-name} returns two values: an ignored value and

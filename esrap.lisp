@@ -657,8 +657,26 @@ symbols."
 ;;; MAIN INTERFACE
 
 (defun parse (expression text &key (start 0) end junk-allowed)
-  "Parses TEXT using EXPRESSION from START to END. Incomplete parses
-are allowed only if JUNK-ALLOWED is true."
+  "Parses TEXT using EXPRESSION from START to END.
+
+Incomplete parses, that is not consuming the entirety of TEXT, are
+allowed only if JUNK-ALLOWED is true.
+
+Returns three values:
+
+1) A production, if the parse succeeded, NIL otherwise.
+2) The position up to which TEXT has been consumed or NIL if the
+   entirety of TEXT has been consumed.
+3) If the parse succeeded, even if it did not consume any input, T is
+   returned as a third value.
+
+The third return value is necessary to distinguish successful and
+failed parses for cases like
+
+  (parse '(! #\\a) \"a\" :junk-allowed t)
+  (parse '(! #\\a) \"b\" :junk-allowed t)
+
+in which the first two return values cannot indicate failures."
   ;; There is no backtracking in the toplevel expression -- so there's
   ;; no point in compiling it as it will be executed only once -- unless
   ;; it's a constant, for which we have a compiler-macro.
@@ -699,7 +717,8 @@ are allowed only if JUNK-ALLOWED is true."
         (cond
           ((= position end) nil) ; Consumed all input.
           (junk-allowed position) ; Did not consume all input; junk is OK.
-          (t (simple-esrap-error text position "Incomplete parse."))))))
+          (t (simple-esrap-error text position "Incomplete parse.")))
+        t)))
     ;; Did not parse anything, but junk is allowed.
     (junk-allowed
      (values nil start))
@@ -1341,28 +1360,37 @@ but clause heads designate kinds of expressions instead of types. See
 
 (defun exec-terminal-function (function text position end)
   (declare (type function function))
-  ;; The protocol is as follows: if FUNCTION returns two values and (>
-  ;; END-POSITION POSITION), it succeeded.
+  ;; The protocol is as follows:
   ;;
-  ;; It failed if one of
-  ;; 1) (= END-POSITION POSITION) (since no progress has been made)
-  ;; 2) FAILURE is non-NIL
+  ;; FUNCTION succeeded if one of
+  ;; 1) returns two values and (> END-POSITION POSITION)
+  ;; 2) three values and RESULT is T
   ;;
-  ;; When FAILURE is non-NIL, it can be a string or a condition. In
-  ;; this case, END-POSITION can indicate the exact position of the
-  ;; failure but is also allowed to be NIL.
-  (multiple-value-bind (production end-position failure)
+  ;; FUNCTION failed if one of
+  ;; 1) (= END-POSITION POSITION) (since no progress has been made),
+  ;;    but only if RESULT is not T
+  ;; 2) RESULT is a string or a condition
+  ;;
+  ;; When RESULT is a string or a condition, END-POSITION can indicate
+  ;; the exact position of the failure but is also allowed to be NIL.
+  ;;
+  ;; RESULT can be T to indicate success even if (= END-POSITION
+  ;; POSITION).
+  (multiple-value-bind (production end-position result)
       (funcall function text position end)
-    (declare (type (or null non-negative-integer) end-position))
-    (if (or failure
-            (and (integerp end-position) (= end-position position)))
+    (declare (type (or null non-negative-integer) end-position)
+             (type (or null string condition (eql t)) result))
+    (if (or (eq result t)
+            (and (null result)
+                 (or (null end-position)
+                     (> end-position position))))
+        (make-result
+         :position (or end-position end)
+         :production production)
         (make-failed-parse
          :expression function
          :position (or end-position position)
-         :detail failure)
-        (make-result
-         :position (or end-position end)
-         :production production))))
+         :detail result))))
 
 (defun eval-terminal-function (expression text position end)
   (with-expression (expression (function function))

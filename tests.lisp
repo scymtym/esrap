@@ -116,23 +116,38 @@
           (cons int list)))))
 
 (test smoke
-  (is (equal '("1," "2," "" "3," "4.")
-             (parse 'trimmed-lines "1,
-                                    2,
+  (is (equal '(("1," "2," "" "3," "4.") nil t)
+             (multiple-value-list
+              (parse 'trimmed-lines "1,
+                                     2,
 
-                                    3,
-                                    4.")))
-  (is (eql 123 (parse 'integer "  123")))
-  (is (eql 123 (parse 'integer "  123  ")))
-  (is (eql 123 (parse 'integer "123  ")))
-  (is (equal '(123 45 6789 0) (parse 'list-of-integers "123, 45  ,   6789, 0")))
-  (is (equal '(123 45 6789 0) (parse 'list-of-integers "  123 ,45,6789, 0  ")))
+                                     3,
+                                     4."))))
+  (is (equal '(123 nil t)
+             (multiple-value-list (parse 'integer "  123"))))
+  (is (equal '(123 nil t)
+             (multiple-value-list (parse 'integer "  123  "))))
+  (is (equal '(123 nil t)
+             (multiple-value-list (parse 'integer "123  "))))
+  (is (equal '((123 45 6789 0) nil t)
+             (multiple-value-list
+              (parse 'list-of-integers "123, 45  ,   6789, 0"))))
+  (is (equal '((123 45 6789 0) nil t)
+             (multiple-value-list
+              (parse 'list-of-integers "  123 ,45,6789, 0  "))))
 
   ;; Ensure that parsing with :junk-allowed returns the correct
   ;; position.
   (is (equal '(nil 1)
              (multiple-value-list (parse 'list-of-integers " a"
-                                         :start 1 :junk-allowed t)))))
+                                         :start 1 :junk-allowed t))))
+
+  ;; Test successful parse that does not consume input. This case can
+  ;; only be detected by examining the third return value.
+  (is (equal '(nil 1 t)
+             (multiple-value-list
+              (parse '(? list-of-integers) " a"
+                     :start 1 :junk-allowed t)))))
 
 (defrule single-token/bounds.1 (+ (not-space character))
   (:lambda (result &bounds start end)
@@ -246,6 +261,24 @@
 (test function-terminals.nested-parse.condition
   "Test propagation of failure information through function terminals."
   (signals esrap-error (parse 'function-terminals.nested-parse "bddxa")))
+
+(defun function-terminals.without-consuming (text position end)
+  (declare (ignore end))
+  (if (char= (aref text position) #\a)
+      (values :ok position t)
+      (values nil position "\"a\" expected")))
+
+(test function-terminals.without-consuming
+  "Test that function terminals can succeed without consuming input."
+  (is (equal '((:ok "a") nil t)
+             (multiple-value-list
+              (parse '(and #'function-terminals.without-consuming #\a) "a"))))
+
+  (is (equal '(((:ok "a" :ok) (:ok "a" :ok)) 2 t)
+             (multiple-value-list
+              (parse '(+ (and #'function-terminals.without-consuming #\a
+                              #'function-terminals.without-consuming))
+                     "aaab" :junk-allowed t)))))
 
 ;;; Left recursion tests
 
@@ -493,11 +526,11 @@
 
 (test examples-from-readme.foo
   "README examples related to \"foo+\" rule."
-  (is (equal '("foo" nil)
+  (is (equal '("foo" nil t)
              (multiple-value-list (parse '(or "foo" "bar") "foo"))))
   (is (eq 'foo+ (add-rule 'foo+
                           (make-instance 'rule :expression '(+ "foo")))))
-  (is (equal '(("foo" "foo" "foo") nil)
+  (is (equal '(("foo" "foo" "foo") nil t)
              (multiple-value-list (parse 'foo+ "foofoofoo")))))
 
 (test examples-from-readme.decimal
