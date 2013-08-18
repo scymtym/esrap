@@ -68,6 +68,8 @@
   :in-order-to      ((test-op (test-op :esrap-tests))))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
+  (pushnew :esrap.lookahead *features*)
+  (pushnew :esrap.lookbehind *features*)
   ;; Since version 0.13
   (pushnew :esrap.expression-start-terminals *features*)
   ;; Since version 0.12

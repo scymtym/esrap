@@ -31,6 +31,11 @@
       ,@(mapcar (lambda (symbol)
                   `(,symbol . (cons (eql ,symbol) (cons t null))))
                 '(not * + ? & !))
+      ,@(mapcar (lambda (symbol)
+                  `(,symbol . (cons (eql ,symbol)
+                                    (cons (and positive-integer input-position)
+                                          (cons t null)))))
+                '(< >))
       (terminal         . terminal)
       (nonterminal      . nonterminal)
       (predicate        . predicate)
@@ -125,7 +130,9 @@ but clause heads designate kinds of expressions instead of types. See
            ((and or)
             (mapc #'rec (rest expression)))
            ((not * + ? & ! predicate)
-            (rec (second expression))))))
+            (rec (second expression)))
+           ((< >)
+            (rec (third expression))))))
     (rec expression)))
 
 (defun %expression-dependencies (expression)
@@ -145,7 +152,9 @@ but clause heads designate kinds of expressions instead of types. See
                 (reduce #'rec (rest expression)
                         :initial-value result :from-end t))
                ((not * + ? & ! predicate)
-                (rec (second expression) result)))))
+                (rec (second expression) result))
+               ((< >)
+                (rec (third expression) result)))))
     (rec expression '())))
 
 (defun %expression-direct-dependencies (expression)
@@ -159,7 +168,9 @@ but clause heads designate kinds of expressions instead of types. See
                 (reduce #'rec (rest expression)
                         :initial-value result :from-end t))
                ((not * + ? & ! predicate)
-                (rec (second expression) result)))))
+                (rec (second expression) result))
+               ((< >)
+                (rec (third expression) result)))))
     (rec expression '())))
 
 (defun expression-start-terminals (expression)
@@ -184,6 +195,14 @@ but clause heads designate kinds of expressions instead of types. See
 
      where NESTED-ELEMENTS is the list of start terminals of the
      negated expression.
+
+   * < and > expressions are represented as
+
+       ({<,>} OFFSET NESTED-ELEMENTS)
+
+     where OFFSET is a positive integer and NESTED-ELEMENTS is the
+     list of start terminals of the expression that should match
+     OFFSET characters backward/forward from the current position.
 
    The (outermost) list is sorted likes this:
 
@@ -210,6 +229,9 @@ but clause heads designate kinds of expressions instead of types. See
                 (rec (second expression) seen))
                ((? *)
                 (values (rec (second expression) seen) t))
+               ((< >)
+                (with-expression (expression ((t direction) amount subexpr))
+                  (list (list direction amount (rec subexpr seen)))))
                (and
                 (let ((result '()))
                   (dolist (sub-expression (rest expression) result)
@@ -242,9 +264,9 @@ but clause heads designate kinds of expressions instead of types. See
            (typep left  '(not (eql character))))
       (and (typep left  '(cons predicate-name))
            (typep right '(not (or string character (eql character)
-                               (cons predicate-name)))))
+                                  (cons predicate-name)))))
       (typep right '(not (or string character (eql character)
-                          (cons predicate-name))))))
+                             (cons predicate-name))))))
 
 (defun expression-equal-p (left right)
   (labels ((rec (left right)
@@ -267,6 +289,7 @@ but clause heads designate kinds of expressions instead of types. See
 
      (PREDICATE-NAME TERMINALS)
      ({not,!} TERMINALS)
+     ({<,>} OFFSET TERMINALS)
 
    (i.e. as produced by EXPRESSION-START-TERMINALS)."
   (labels
@@ -317,6 +340,15 @@ but clause heads designate kinds of expressions instead of types. See
                  (pprint-logical-block (stream sub-expression)
                    (rec/sub-expression
                     sub-expression "~[~; ~:; ~5:T~]" "~@:_ and "))))))
+           ((< >)
+            (with-expression (terminal ((t direction) amount sub-expression))
+              (pprint-logical-block (stream sub-expression)
+                (rec/sub-expression sub-expression "~[~;~:; ~4:T~]" "~@:_ or ")
+                (output "~[~; ~:;~@:_~]~
+                         ~D character~:P ~[before~;after~] the ~
+                         current position"
+                        (length sub-expression)
+                        amount (case direction (< 0) (> 1))))))
            (predicate
             (let ((sub-expression (second terminal)))
               (pprint-logical-block (stream sub-expression)

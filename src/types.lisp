@@ -52,7 +52,9 @@ characters."
 
 (deftype predicate-name ()
   '(and symbol
-        (not (member character-ranges string and or not * + ? & ! ~
+        (not (member character-ranges string
+                     and or not
+                     * + ? & ! ~ < >
                      function))))
 
 (deftype predicate ()

@@ -250,8 +250,8 @@
                  ;; Do not recurse into results for negation-ish
                  ;; expressions.
                  (expression-case (result-expression result)
-                   ((! not) (process-leaf-result result))
-                   (t       (process-inner-result result recurse)))))
+                   ((! not < >) (process-leaf-result result))
+                   (t           (process-inner-result result recurse)))))
              (map-max-results (node)
                (destructuring-bind (position result children) node
                  (declare (ignore position))

@@ -127,6 +127,10 @@
      (eval-followed-by expression text position end))
     (!
      (eval-not-followed-by expression text position end))
+    (<
+     (eval-look-behind expression text position end))
+    (>
+     (eval-look-ahead expression text position end))
     (character-ranges
      (eval-character-ranges expression text position end))
     (function
@@ -151,6 +155,8 @@
     (?                (compile-optional expression))
     (&                (compile-followed-by expression))
     (!                (compile-not-followed-by expression))
+    (<                (compile-look-behind expression))
+    (>                (compile-look-ahead expression))
     (character-ranges (compile-character-ranges expression))
     (function         (compile-terminal-function expression))
     (predicate        (compile-semantic-predicate expression))))
@@ -630,6 +636,43 @@
           (if (error-result-p result)
               (%make-successful-parse expression position result '(nil))
               (make-failed-parse expression position result)))))))
+
+;;; Look{ahead,behind}
+
+(macrolet
+    ((define-look (direction operator look-position test)
+       (let ((eval-name (symbolicate '#:eval-look- direction))
+             (compile-name (symbolicate '#:compile-look- direction))
+             (lambda-name (symbolicate '#:compiled-look- direction)))
+         `(progn
+            (defun ,eval-name (expression text position end)
+              (with-expression (expression (,operator n subexpr))
+                (declare (type input-position n))
+                (let* ((look-position ,look-position)
+                       (result
+                         (when ,test
+                           (eval-expression subexpr text look-position end))))
+                  (if (or (not result) (error-result-p result))
+                      (make-failed-parse expression position result)
+                      (make-successful-parse
+                       expression position result #'successful-parse-production)))))
+
+            (defun ,compile-name (expression)
+              (with-expression (expression (,operator n subexpr))
+                (declare (type input-position n))
+                (let ((function (compile-expression subexpr)))
+                  (expression-lambda ,lambda-name (text position end)
+                    (let* ((look-position ,look-position)
+                           (result
+                             (when ,test
+                               (funcall function text look-position end))))
+                      (if (or (not result) (error-result-p result))
+                          (make-failed-parse expression position result)
+                          (make-successful-parse
+                           expression position result #'successful-parse-production)))))))))))
+
+  (define-look :behind < (- position n) (>= look-position 0))
+  (define-look :ahead  > (+ position n) (<= look-position end)))
 
 ;;; Semantic predicates
 

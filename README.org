@@ -75,6 +75,8 @@
   (? <expr>)                  -- optional
   (& <expr>)                  -- followed-by; does not consume
   (! <expr>)                  -- not-followed-by; does not consume
+  (< <amount> <expr>)         -- lookbehind <amount> characters; does not consume
+  (> <amount> <expr>)         -- lookahead <amount> characters; does not consume
   #+end_example
 
 * Trivial Examples
