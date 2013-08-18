@@ -667,8 +667,7 @@ are allowed only if JUNK-ALLOWED is true."
         (*heads* (make-heads)))
     (process-parse-result
      (eval-expression expression text start end)
-     text
-     end
+     text start end
      junk-allowed)))
 
 (define-compiler-macro parse (&whole form expression &rest arguments
@@ -685,13 +684,12 @@ are allowed only if JUNK-ALLOWED is true."
                     (end (or end (length text))))
                 (process-parse-result
                  (funcall ,expr-fun text start end)
-                 text
-                 end
+                 text start end
                  junk-allowed)))
             ,@arguments)))
       form))
 
-(defun process-parse-result (result text end junk-allowed)
+(defun process-parse-result (result text start end junk-allowed)
   (cond
     ;; Successfully parsed something.
     ((not (error-result-p result))
@@ -704,7 +702,7 @@ are allowed only if JUNK-ALLOWED is true."
           (t (simple-esrap-error text position "Incomplete parse."))))))
     ;; Did not parse anything, but junk is allowed.
     (junk-allowed
-     (values nil 0))
+     (values nil start))
     ;; Did not parse anything and junk is not allowed.
     ((failed-parse-p result)
      (labels ((expressions (e)

@@ -126,7 +126,13 @@
   (is (eql 123 (parse 'integer "  123  ")))
   (is (eql 123 (parse 'integer "123  ")))
   (is (equal '(123 45 6789 0) (parse 'list-of-integers "123, 45  ,   6789, 0")))
-  (is (equal '(123 45 6789 0) (parse 'list-of-integers "  123 ,45,6789, 0  "))))
+  (is (equal '(123 45 6789 0) (parse 'list-of-integers "  123 ,45,6789, 0  ")))
+
+  ;; Ensure that parsing with :junk-allowed returns the correct
+  ;; position.
+  (is (equal '(nil 1)
+             (multiple-value-list (parse 'list-of-integers " a"
+                                         :start 1 :junk-allowed t)))))
 
 (defrule single-token/bounds.1 (+ (not-space character))
   (:lambda (result &bounds start end)
