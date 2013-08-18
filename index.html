@@ -15,8 +15,8 @@
   pre.smallexample { font-size:smaller }
   pre.smalllisp    { font-size:smaller }
   span.sc    { font-variant:small-caps }
-  span.roman { font-family:serif; font-weight:normal; } 
-  span.sansserif { font-family:sans-serif; font-weight:normal; } 
+  span.roman { font-family:serif; font-weight:normal; }
+  span.sansserif { font-family:sans-serif; font-weight:normal; }
 .node { visibility:hidden; height: 0px; }
   .menu { visibility:hidden; height: 0px; }
   .chapter { background-color:#e47700; padding: 0.2em; }
@@ -80,7 +80,7 @@ thesis: &ldquo;Packrat Parsing: a Practical Linear Time Algorithm with Backtrack
 
 <h2 class="chapter"><a name="TOC0"></a>1 Parsing Expressions</h2>
 
-<p>Parsing proceeds by matching text against parsing expressions. 
+<p>Parsing proceeds by matching text against parsing expressions.
 Matching has three components: success vs failure, consumption of
 input, and associated production.
 
@@ -98,18 +98,18 @@ consumes a single character if that character matches the terminal.
 
      <ul>
 <li>The wild terminal symbol <code>character</code> always succeeds, consuming
-and producing a single character. 
+and producing a single character.
 <li>Expressions of the form <code>(character-ranges range ...)</code> match a
 single character from the given range(s), consuming and producing that
 character. A range can be either a list of the form <code>(#\start_char
-#\stop_char)</code> or a single character. 
+#\stop_char)</code> or a single character.
 <li>Multicharacter strings can be used to specify sequences of terminals:
 <code>"foo"</code> succeeds and consumes input as if <code>(and #\f #\o
-#\o)</code>. Produces the consumed string. 
+#\o)</code>. Produces the consumed string.
 <li>Expressions of the form <code>(string length)</code> can be used to specify
 sequences of arbitrary characters: <code>(string 2)</code> succeeds and
 consumes input as if <code>(and character character)</code>. Produces the
-consumed string. 
+consumed string.
 </ul>
 
 <h3 class="heading"><a name="TOC2"></a>Nonterminal</h3>
@@ -221,15 +221,26 @@ whatever the predicate function returns.</em>
 function. <code>function-name</code>'s lambda-list has to be compatible to
 <code>(text position end)</code> where <code>text</code> is the whole input and
 <code>position</code> and <code>end</code> indicate the maximal subsequence
-<code>function-name</code> should attempt to parse. A function terminal
-succeeds if <code>function-name</code> returns two values: an arbitrary
-production and a positive integer greater than <code>position</code>
-indicating the position up to which <code>text</code> has been consumed. A
-function terminal fails if either
+<code>function-name</code> should attempt to parse.
+
+   <p>A function terminal succeeds if either
+     <ol type=1 start=1>
+<li><code>function-name</code> returns <code>T</code> as its third value.
+<li><code>function-name</code> returns <code>nil</code> as its third value (or returns
+only two values) and <code>nil</code> as its second value. This indicates that
+the entire remaining input has been consumed.
+<li><code>function-name</code> returns <code>nil</code> as its third value (or returns
+only two values) and an integer <code>&gt; position</code> as its second value
+indicating the position up to which <code>text</code> has been consumed.
+        </ol>
+When a function terminal succeeds, the first return value is an
+arbitrary production.
+
+   <p>A function terminal fails if either
      <ol type=1 start=1>
 <li><code>function-name</code> returns two values: an ignored value and
 <code>position</code>. Returning <code>position</code> indicates that no progress
-has been made. 
+has been made.
 <li><code>function-name</code> returns three values: an ignored value, <code>nil</code>
 or an integer <code>&gt;= position</code> and a string or a condition explaining
 the failure. In this case, when the second value is not <code>nil</code>, it
@@ -271,7 +282,7 @@ recursion.
         <p>Multiple <code>options</code> specifying transforms are composed in the order of
 appearance:
 
-     <pre class="lisp">          
+     <pre class="lisp">
             (:text t)
             (:function parse-integer)
             =&gt;
@@ -341,7 +352,7 @@ appearance:
     and <code>:destructure</code>.
 
           <p>This option can be used to safely track nesting depth, manage symbol
-    tables or for other stack-like operations. 
+    tables or for other stack-like operations.
 </ul>
         </p></blockquote></div>
 
@@ -349,8 +360,27 @@ appearance:
 
 <div class="defun">
 &mdash; Function: <b>parse</b><var> expression text &amp;key start end junk-allowed<a name="index-parse-3"></a></var><br>
-<blockquote><p><a name="index-parse-4"></a>Parses <code>text</code> using <code>expression</code> from <code>start</code> to <code>end</code>. Incomplete parses
-are allowed only if <code>junk-allowed</code> is true. 
+<blockquote><p><a name="index-parse-4"></a>Parses <code>text</code> using <code>expression</code> from <code>start</code> to <code>end</code>.
+
+        <p>Incomplete parses, that is not consuming the entirety of <code>text</code>, are
+allowed only if <code>junk-allowed</code> is true.
+
+        <p>Returns three values:
+
+        <p>1) A production, if the parse succeeded, <code>nil</code> otherwise.
+2) The position up to which <code>text</code> has been consumed or <code>nil</code> if the
+   entirety of <code>text</code> has been consumed.
+3) If the parse succeeded, even if it did not consume any input, <code>t</code> is
+   returned as a third value.
+
+        <p>The third return value is necessary to distinguish successful and
+failed parses for cases like
+
+     <pre class="lisp">
+            (parse '(! #\a) "a" :junk-allowed t)
+            (parse '(! #\a) "b" :junk-allowed t)
+</pre>
+        <p>in which the first two return values cannot indicate failures.
 </p></blockquote></div>
 
    <p><a name="Function-describe_002dgrammar"></a>
@@ -358,7 +388,7 @@ are allowed only if <code>junk-allowed</code> is true.
 <div class="defun">
 &mdash; Function: <b>describe-grammar</b><var> symbol &amp;optional stream<a name="index-describe_002dgrammar-5"></a></var><br>
 <blockquote><p><a name="index-describe_002dgrammar-6"></a>Prints the grammar tree rooted at nonterminal <code>symbol</code> to <code>stream</code> for human
-inspection. 
+inspection.
 </p></blockquote></div>
 
 <h3 class="section"><a name="TOC16"></a>2.2 Utilities</h3>
@@ -367,8 +397,8 @@ inspection.
 
 <div class="defun">
 &mdash; Function: <b>text</b><var> &amp;rest arguments<a name="index-text-7"></a></var><br>
-<blockquote><p><a name="index-text-8"></a>Arguments must be strings, or lists whose leaves are strings. 
-Catenates all the strings in arguments into a single string. 
+<blockquote><p><a name="index-text-8"></a>Arguments must be strings, or lists whose leaves are strings.
+Catenates all the strings in arguments into a single string.
 </p></blockquote></div>
 
 <h3 class="section"><a name="TOC17"></a>2.3 Introspection and Intercession</h3>
@@ -379,7 +409,7 @@ Catenates all the strings in arguments into a single string.
 &mdash; Function: <b>add-rule</b><var> symbol rule<a name="index-add_002drule-9"></a></var><br>
 <blockquote><p><a name="index-add_002drule-10"></a>Associates <code>rule</code> with the nonterminal <code>symbol</code>. Signals an error if the
 rule is already associated with a nonterminal. If the symbol is already
-associated with a rule, the old rule is removed first. 
+associated with a rule, the old rule is removed first.
 </p></blockquote></div>
 
    <p><a name="Function-change_002drule"></a>
@@ -387,7 +417,7 @@ associated with a rule, the old rule is removed first.
 <div class="defun">
 &mdash; Function: <b>change-rule</b><var> symbol expression<a name="index-change_002drule-11"></a></var><br>
 <blockquote><p><a name="index-change_002drule-12"></a>Modifies the nonterminal <code>symbol</code> to use <code>expression</code> instead. Temporarily
-removes the rule while it is being modified. 
+removes the rule while it is being modified.
 </p></blockquote></div>
 
    <p><a name="Function-find_002drule"></a>
@@ -395,7 +425,7 @@ removes the rule while it is being modified.
 <div class="defun">
 &mdash; Function: <b>find-rule</b><var> symbol<a name="index-find_002drule-13"></a></var><br>
 <blockquote><p><a name="index-find_002drule-14"></a>Returns rule designated by <code>symbol</code>, if any. Symbol must be a nonterminal
-symbol. 
+symbol.
 </p></blockquote></div>
 
    <p><a name="Function-remove_002drule"></a>
@@ -404,7 +434,7 @@ symbol.
 &mdash; Function: <b>remove-rule</b><var> symbol &amp;key force<a name="index-remove_002drule-15"></a></var><br>
 <blockquote><p><a name="index-remove_002drule-16"></a>Makes the nonterminal <code>symbol</code> undefined. If the nonterminal is defined an
 already referred to by other rules, an error is signalled unless <code>:force</code> is
-true. 
+true.
 </p></blockquote></div>
 
    <p><a name="Function-rule_002ddependencies"></a>
@@ -413,14 +443,14 @@ true.
 &mdash; Function: <b>rule-dependencies</b><var> rule<a name="index-rule_002ddependencies-17"></a></var><br>
 <blockquote><p><a name="index-rule_002ddependencies-18"></a>Returns the dependencies of the <code>rule:</code> primary value is a list of defined
 nonterminal symbols, and secondary value is a list of undefined nonterminal
-symbols. 
+symbols.
 </p></blockquote></div>
 
    <p><a name="Function-rule_002dexpression"></a>
 
 <div class="defun">
 &mdash; Function: <b>rule-expression</b><var> rule<a name="index-rule_002dexpression-19"></a></var><br>
-<blockquote><p><a name="index-rule_002dexpression-20"></a>Return the parsing expression associated with the <code>rule</code>. 
+<blockquote><p><a name="index-rule_002dexpression-20"></a>Return the parsing expression associated with the <code>rule</code>.
 </p></blockquote></div>
 
    <p><a name="Function-_0028setf-rule_002dexpression_0029"></a>
@@ -428,7 +458,7 @@ symbols.
 <div class="defun">
 &mdash; Function: <b>(setf rule-expression)</b><var> expression rule<a name="index-g_t_0028setf-rule_002dexpression_0029-21"></a></var><br>
 <blockquote><p><a name="index-g_t_0028setf-rule_002dexpression_0029-22"></a>Modify <code>rule</code> to use <code>expression</code> as the parsing expression. The rule must be
-detached beforehand. 
+detached beforehand.
 </p></blockquote></div>
 
    <p><a name="Function-rule_002dsymbol"></a>
@@ -436,7 +466,7 @@ detached beforehand.
 <div class="defun">
 &mdash; Function: <b>rule-symbol</b><var> rule<a name="index-rule_002dsymbol-23"></a></var><br>
 <blockquote><p><a name="index-rule_002dsymbol-24"></a>Returns the nonterminal associated with the <code>rule</code>, or <code>nil</code> of the rule
-is not attached to any nonterminal. 
+is not attached to any nonterminal.
 </p></blockquote></div>
 
    <p><a name="Function-trace_002drule"></a>
@@ -445,7 +475,7 @@ is not attached to any nonterminal.
 &mdash; Function: <b>trace-rule</b><var> symbol &amp;key recursive break<a name="index-trace_002drule-25"></a></var><br>
 <blockquote><p><a name="index-trace_002drule-26"></a>Turn on tracing of nonterminal <code>symbol</code>. If <code>recursive</code> is true, turn
 on tracing for the whole grammar rooted at <code>symbol</code>. If <code>break</code> is true,
-break is entered when the rule is invoked. 
+break is entered when the rule is invoked.
 </p></blockquote></div>
 
    <p><a name="Function-untrace_002drule"></a>
@@ -454,7 +484,7 @@ break is entered when the rule is invoked.
 &mdash; Function: <b>untrace-rule</b><var> symbol &amp;key recursive break<a name="index-untrace_002drule-27"></a></var><br>
 <blockquote><p><a name="index-untrace_002drule-28"></a>Turn off tracing of nonterminal <code>symbol</code>. If <code>recursive</code> is true, untraces the
 whole grammar rooted at <code>symbol</code>. <code>break</code> is ignored, and is provided only for
-symmetry with <code>trace-rule</code>. 
+symmetry with <code>trace-rule</code>.
 </p></blockquote></div>
 
 <h3 class="section"><a name="TOC18"></a>2.4 Error Conditions</h3>
@@ -470,7 +500,7 @@ allowing left recursion.
 left recursive rule. Otherwise the rule is processed.
 
         <p>Note: when processing left recursive rules, linear-time guarantees
-generally no longer hold. 
+generally no longer hold.
 </p></blockquote></div>
 
    <p><a name="Condition-esrap_002derror"></a>
@@ -481,7 +511,7 @@ generally no longer hold.
 
         <p>Signaled when an Esrap parse fails. Use <code>esrap-error-text</code> to obtain the
 string that was being parsed, and <code>esrap-error-position</code> the position at which
-the error occurred. 
+the error occurred.
 </p></blockquote></div>
 
    <p><a name="Condition-left_002drecursion"></a>
@@ -497,8 +527,7 @@ was detected, and <code>left-recursion-path</code> lists nonterminals of which t
 left recursion cycle consists.
 
         <p>Note: This error is only signaled if <code>*on-left-recursion*</code> is bound
-to <code>:error</code>. 
+to <code>:error</code>.
 </p></blockquote></div>
 
 </body></html>
-
