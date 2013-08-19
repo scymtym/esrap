@@ -282,6 +282,8 @@ guarantee generally no longer holds in such cases. The special variable
 @code{:error} to control Esrap's behavior with respect to allowing left
 recursion.
 
+See @file{example-left-recursion.lisp} for examples.
+
 @chapter Dictionary
 
 @section Primary Interface
