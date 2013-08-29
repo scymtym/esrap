@@ -408,6 +408,8 @@
 (test parse.case-insensitive
   "Test parsing an arbitrary string of a given length."
   (dolist (input '("aabb" "AABB" "aAbB" "aaBB" "AAbb"))
+    (unless (every #'lower-case-p input)
+      (signals esrap-error (parse '(* (or #\a #\b)) input)))
     (is (equal "aabb" (text (parse '(* (or (~ #\a) (~ #\b))) input))))
     (is (equal "AABB" (text (parse '(* (or (~ #\A) (~ #\B))) input))))
     (is (equal "aaBB" (text (parse '(* (or (~ #\a) (~ #\B))) input))))))
