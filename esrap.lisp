@@ -610,32 +610,32 @@ symbols."
 ;;; used to perform semantic actions only when necessary -- either
 ;;; when we call a semantic predicate or once parse has finished.
 
-(defstruct error-result)
+(defstruct (error-result (:copier nil)))
 
-(defstruct (inactive-rule (:include error-result))
+(defstruct (inactive-rule (:include error-result) (:copier nil))
   ;; Name of the rule that was inactive.
-  (rule (required-argument) :type symbol))
+  (rule (required-argument) :type symbol :read-only t))
 
-(defstruct (failed-parse (:include error-result))
+(defstruct (failed-parse (:include error-result) (:copier nil))
   ;; Expression that failed to match.
-  expression
+  (expression nil :read-only t) ; TODO required?
   ;; Position at which match was attempted.
-  (position (required-argument) :type array-index)
+  (position (required-argument) :type array-index :read-only t)
   ;; A nested error, closer to actual failure site.
-  (detail nil :type (or null string condition error-result)))
+  (detail nil :type (or null string condition error-result) :read-only t))
 
 ;; This is placed in the cache as a place in which information
 ;; regarding left recursion can be stored temporarily.
-(defstruct (left-recursion-result (:include error-result))
-  (rule (required-argument) :type symbol)
+(defstruct (left-recursion-result (:include error-result) (:copier nil))
+  (rule (required-argument) :type symbol :read-only t)
   (head nil :type (or null head)))
 
-(defstruct (result (:constructor %make-result))
+(defstruct (result (:constructor %make-result) (:copier nil))
   ;; Either a list of results, whose first element is the production, or a
   ;; function to call that will return the production.
-  %production
+  (%production nil :type (or list function))
   ;; Position after the match.
-  (position (required-argument) :type array-index))
+  (position (required-argument) :type array-index :read-only t))
 
 (defmacro make-result (&rest arguments &key production &allow-other-keys)
   (if production
