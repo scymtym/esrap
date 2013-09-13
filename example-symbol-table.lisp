@@ -7,6 +7,15 @@
 
 (in-package :symbol-table)
 
+;;; Use the :AROUND construction to maintain a stack of symbol tables
+;;; during parsing.
+;;;
+;;; It is important to note that the bodies of :AROUND options are
+;;; executed during result construction, not parsing. Therefore,
+;;; :AROUND cannot be used to introduce context sensitivity into
+;;; parsing. However, this can be done when using functions as
+;;; terminals, see example-function-terminals.lisp.
+
 (declaim (special *symbol-table*))
 (defvar *symbol-table* nil)
 
