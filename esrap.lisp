@@ -57,6 +57,7 @@
    #:esrap-parse-error
    #:expression-start-terminals
    #:find-rule
+   #:incomplete-parse-error
    #:invalid-expression-error
    #:invalid-expression-error-expression
    #:esrap-error-print-position
@@ -233,6 +234,21 @@ the error occurred."))
          #+no (:expression expression
           :path path
           :expected expected)))
+
+(define-condition incomplete-parse-error (esrap-error)
+  ()
+  (:documentation
+   "This error is signaled when parsing a given input text succeeds
+but leaves some of the input unconsumed when all input was supposed to
+be consumed."))
+
+(defmethod print-object ((object incomplete-parse-error) stream)
+  (if *print-escape*
+      (call-next-method)
+      (format stream "Incomplete parse. Expected end of input.")))
+
+(defun incomplete-parse-error (text position)
+  (error 'incomplete-parse-error :text text :position position))
 
 (define-condition left-recursion (esrap-error)
   ((nonterminal :initarg :nonterminal :initform nil :reader left-recursion-nonterminal)
@@ -835,10 +851,8 @@ in which the first two return values cannot indicate failures."
              (the-rules (remove min foo :test #'/= :key #'failed-parse-start))
              (attempts (mapcar (compose #'make-parse-attempt #'expressions) the-rules)))
         (esrap-parse-error text max attempts))
-      ;; No failures.
-      (progn
-        (break (princ-to-string result))
-        (simple-esrap-error text position "Incomplete parse.")))))
+      ;; No failures => incomplete parse. ; TODO right?
+      (incomplete-parse-error text position))))
 
 (defun process-parse-result (result text start end junk-allowed)
   (cond
