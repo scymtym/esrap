@@ -152,7 +152,7 @@ the error occurred."))
 
 (declaim (ftype (function (t t t &rest t) (values nil &optional))
                 simple-esrap-error))
-(defun simple-esrap-error (text position format-control &rest format-arguments)
+(defun simple-esrap-error (text position format-control &rest format-arguments) ; TODO still used? maybe for inactive rules?
   (error 'simple-esrap-error
          :text text
          :position position
@@ -848,8 +848,8 @@ in which the first two return values cannot indicate failures."
                            (list result)))))
       (let* ((max (reduce #'max failed :key #'innermost-position))
              (interesting (remove max failed :test #'/= :key #'innermost-position))
-             (foo     (remove-if (lambda (x) (find x (mappend #'results (remove x interesting))))
-                                 interesting))
+             (foo (remove-if (lambda (x) (find x (mappend #'results (remove x interesting))))
+                             interesting))
              (min (reduce #'min foo :key #'failed-parse-start))
              (the-rules (remove min foo :test #'/= :key #'failed-parse-start))
              (attempts (mapcar (compose #'make-parse-attempt #'expressions) the-rules)))
@@ -1228,6 +1228,11 @@ inspection."
 ;;; COMPILING RULES
 
 (defvar *current-rule* nil)
+
+(defmacro when-error-details (cell &body body)
+  `(if (cdr ,cell)
+       (progn ,@body)
+       (make-failed-parse)))
 
 (defun compile-rule (symbol expression condition transform around)
   (declare (type (or boolean function) condition transform around))
