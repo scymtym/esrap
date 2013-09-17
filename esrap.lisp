@@ -709,7 +709,7 @@ symbols."
   (start (required-argument) :type array-index :read-only t)
   (position (required-argument) :type array-index :read-only t)
   ;; A nested error, closer to actual failure site.
-  (detail nil :type (or null string condition error-result) :read-only t))
+  (detail nil :type (or null cons string condition error-result) :read-only t))
 
 ;; This is placed in the cache as a place in which information
 ;; regarding left recursion can be stored temporarily.
@@ -832,10 +832,11 @@ in which the first two return values cannot indicate failures."
                 (cons (list (failed-parse-expression expression)
                             (list (failed-parse-start expression)
                                   (failed-parse-position expression)))
-                      (expressions (failed-parse-detail expression))))))
+                      (mappend #'expressions
+                               (ensure-list (failed-parse-detail expression)))))))
            (results (e)
              (when e ;; TODO e might be INACTIVE-RULE
-               (cons e (results (failed-parse-detail e)))))
+               (cons e (mappend #'results (ensure-list (failed-parse-detail e))))))
            (innermost-position (result)
              (failed-parse-position (lastcar (results result)))))
     ;; TODO FAILED can be '() when parsing fails due to a single inactive rule
@@ -1756,19 +1757,21 @@ but clause heads designate kinds of expressions instead of types. See
          ;; In the general case, compile subexpressions and call.
          (let ((functions (mapcar #'compile-expression subexprs)))
              (named-lambda compiled-ordered-choise (text position end)
-               (let (last-error)
+               (let ((errors '()))
                  (dolist (fun functions
                           (make-failed-parse
                            :expression expression
                            :start position
-                           :position (if (and last-error
-                                              (failed-parse-p last-error))
-                                         (failed-parse-position last-error)
-                                         position)
-                           :detail last-error))
+                           :position (reduce #'max errors
+                                             :key (lambda (result)
+                                                    (if (failed-parse-p result)
+                                                        (failed-parse-position result)
+                                                        0))
+                                             :initial-value position)
+                           :detail errors))
                    (let ((result (funcall fun text position end)))
                      (if (error-result-p result)
-                         (when (or (and (not last-error)
+                         #+no (when (or (and (not last-error)
                                         (or (inactive-rule-p result)
                                             (< position (failed-parse-position result))))
                                    (and last-error
@@ -1777,6 +1780,7 @@ but clause heads designate kinds of expressions instead of types. See
                                             (< (failed-parse-position last-error)
                                                (failed-parse-position result)))))
                            (setf last-error result))
+                         (push result errors)
                          (return result))))))))))))
 
 ;;; Negations
