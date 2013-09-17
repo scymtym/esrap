@@ -816,7 +816,7 @@ in which the first two return values cannot indicate failures."
             (when from (list from to)) comment)))
 
 ;; TODO for incomplete parses: only consider FAILED-PARSE results
-;; behind POSITION
+;; behind POSITION => this is attempted in (if-let ((failed (or (remove-if below
 (defun explain-failed-parse (result text &optional position)
   ;; Note: this function has to be called when *CACHE* still contains
   ;; partial results from the failed parse.
@@ -840,7 +840,9 @@ in which the first two return values cannot indicate failures."
            (innermost-position (result)
              (failed-parse-position (lastcar (results result)))))
     ;; TODO FAILED can be '() when parsing fails due to a single inactive rule
-    (if-let ((failed (or (remove-if (complement #'failed-parse-p)
+    (if-let ((failed (or (remove-if (lambda (result)
+                                      (or (not (failed-parse-p result))
+                                          (and position (< (failed-parse-start result) position))))
                                     (hash-table-values *cache*))
                          (when (failed-parse-p result)
                            (list result)))))
