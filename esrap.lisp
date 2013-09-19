@@ -171,7 +171,7 @@ the error occurred."))
   ;; where NAME or EXPRESSION represents a rule or expression which
   ;; failed at region of the input bounded by START and END. COMMENT
   ;; is an optional string explaining the failure.
-  (expressions (required-argument) :type list :read-only t))
+  (expressions (required-argument :expressions) :type list :read-only t))
 
 ;; Return the position up to which ATTEMPT consumed the input.
 (defun parse-attempt-position (attempt)
@@ -415,7 +415,7 @@ constructors."))
                        make-rule-cell
                        (symbol &aux (%info (cons (undefined-rule-function symbol) nil))))
                       (:conc-name cell-))
-  (%info (required-argument) :type (cons function t))
+  (%info (required-argument :%info) :type (cons function t))
   (trace-info nil)
   (referents nil :type list))
 
@@ -571,7 +571,7 @@ symbols."
 ;; In case of left recursion, this stores
 (defstruct head
   ;; the rule at which the left recursion started
-  (rule (required-argument) :type symbol)
+  (rule (required-argument :rule) :type symbol)
   ;; the set of involved rules
   (involved-set '() :type list)
   ;; and the set of rules which rules which can still be applied in
@@ -700,21 +700,21 @@ symbols."
 
 (defstruct (inactive-rule (:include error-result) (:copier nil))
   ;; Name of the rule that was inactive.
-  (rule (required-argument) :type symbol :read-only t))
+  (rule (required-argument :rule) :type symbol :read-only t))
 
 (defstruct (failed-parse (:include error-result) (:copier nil))
   ;; Expression that failed to match.
   (expression nil :read-only t) ; TODO required?
   ;; Position at which match was attempted.
-  (start (required-argument) :type array-index :read-only t)
-  (position (required-argument) :type array-index :read-only t)
+  (start (required-argument :start) :type array-index :read-only t)
+  (position (required-argument :position) :type array-index :read-only t)
   ;; A nested error, closer to actual failure site.
   (detail nil :type (or null cons string condition error-result) :read-only t))
 
 ;; This is placed in the cache as a place in which information
 ;; regarding left recursion can be stored temporarily.
 (defstruct (left-recursion-result (:include error-result) (:copier nil))
-  (rule (required-argument) :type symbol :read-only t)
+  (rule (required-argument :rule) :type symbol :read-only t)
   (head nil :type (or null head)))
 
 (defstruct (result (:constructor %make-result) (:copier nil))
@@ -722,7 +722,7 @@ symbols."
   ;; function to call that will return the production.
   (%production nil :type (or list function))
   ;; Position after the match.
-  (position (required-argument) :type array-index :read-only t))
+  (position (required-argument :position) :type array-index :read-only t))
 
 (defmacro make-result (&rest arguments &key production &allow-other-keys)
   (if production
