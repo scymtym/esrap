@@ -351,7 +351,7 @@ constructors."))
   ;;
   ;; RULE is a RULE instance associated to the cell or nil for
   ;; referenced but undefined rules.
-  (%info (required-argument) :type (cons function t))
+  (%info (required-argument :%info) :type (cons function t))
   (trace-info nil)
   (referents nil :type list))
 
@@ -506,7 +506,7 @@ symbols."
 ;; In case of left recursion, this stores
 (defstruct head
   ;; the rule at which the left recursion started
-  (rule (required-argument) :type symbol)
+  (rule (required-argument :rule) :type symbol)
   ;; the set of involved rules
   (involved-set '() :type list)
   ;; and the set of rules which rules which can still be applied in
@@ -634,7 +634,7 @@ symbols."
 
 (defstruct (inactive-rule (:include error-result) (:copier nil))
   ;; Name of the rule that was inactive.
-  (rule (required-argument) :type symbol :read-only t))
+  (rule (required-argument :rule) :type symbol :read-only t))
 
 (defstruct (failed-parse (:include error-result) (:copier nil))
   ;; Expression that failed to match.
@@ -647,7 +647,7 @@ symbols."
 ;; This is placed in the cache as a place in which information
 ;; regarding left recursion can be stored temporarily.
 (defstruct (left-recursion-result (:include error-result) (:copier nil))
-  (rule (required-argument) :type symbol :read-only t)
+  (rule (required-argument :rule) :type symbol :read-only t)
   (head nil :type (or null head)))
 
 (defstruct (result (:constructor %make-result) (:copier nil))
@@ -655,7 +655,7 @@ symbols."
   ;; function to call that will return the production.
   (%production nil :type (or list function))
   ;; Position after the match.
-  (position (required-argument) :type array-index :read-only t))
+  (position (required-argument :position) :type array-index :read-only t))
 
 (defmacro make-result (&rest arguments &key production &allow-other-keys)
   (if production
