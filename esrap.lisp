@@ -820,35 +820,45 @@ in which the first two return values cannot indicate failures."
   (labels ((expressions (expression)
              ;; Return a list of items of the form
              ;; ((NAME | EXPRESSION) (&optional START END) &optional COMMENT)
-             (etypecase expression
-               (null
+             (etypecase (first expression)
+               ((or null condition)
                 '())
                (inactive-rule
-                (list (list (inactive-rule-rule expression) nil "(not active)")))
+                (list (list (inactive-rule-rule (first expression)) nil "(not active)")))
                (failed-parse
-                (cons (list (failed-parse-expression expression)
-                            (list (failed-parse-start expression)
-                                  (failed-parse-position expression)))
-                      (mappend #'expressions
-                               (ensure-list (failed-parse-detail expression)))))))
+                (cons (list (failed-parse-expression (first expression))
+                            (list (failed-parse-start (first expression))
+                                  (failed-parse-position (first expression))))
+                      (expressions (rest expression))))))
            (results (e)
-             (when e ;; TODO e might be INACTIVE-RULE
-               (cons e (mappend #'results (ensure-list (failed-parse-detail e))))))
-           (innermost-position (result)
-             (failed-parse-position (lastcar (results result)))))
+             (etypecase e ;; TODO e might be INACTIVE-RULE?
+               (failed-parse
+                (map-product
+                 #'list*
+                 (list e) (or (mappend #'results (ensure-list (failed-parse-detail e)))
+                              (list nil))))
+               (condition
+                (list (list e)))))
+           (innermost-position (derivation)
+             (failed-parse-position ; TODO what if NIL?
+              (find-if (of-type 'failed-parse) derivation :from-end t))))
     ;; TODO FAILED can be '() when parsing fails due to a single inactive rule
-    (if-let ((failed (or (remove-if (lambda (result)
-                                      (or (not (failed-parse-p result))
-                                          (and position (< (failed-parse-start result) position))))
-                                    (hash-table-values *cache*))
-                         (when (failed-parse-p result)
-                           (list result)))))
+    (if-let ((failed (mappend #'results
+                              (or (remove-if (lambda (result)
+                                               (or (not (failed-parse-p result))
+                                                   (and position (< (failed-parse-start result) position))))
+                                             (hash-table-values *cache*))
+                                  (when (failed-parse-p result)
+                                    (list result))))))
       (let* ((max (reduce #'max failed :key #'innermost-position))
              (interesting (remove max failed :test #'/= :key #'innermost-position))
-             (foo (remove-if (lambda (x) (find x (mappend #'results (remove x interesting))))
-                             interesting))
-             (min (reduce #'min foo :key #'failed-parse-start))
-             (the-rules (remove min foo :test #'/= :key #'failed-parse-start))
+             ;; TODO come up with new rule
+             (foo #+no (remove-if (lambda (x) (find (first x) (mappend #'identity (remove x interesting))))
+                             interesting)
+                  interesting)
+             #+no (min (reduce #'min foo :key (compose #'failed-parse-start #'first)))
+             #+no (the-rules (remove min foo :test #'/= :key (compose #'failed-parse-start #'first)))
+             (the-rules foo)
              (attempts (mapcar (compose #'make-parse-attempt #'expressions) the-rules)))
         (esrap-parse-error text max attempts))
       ;; No failures => incomplete parse. ; TODO right?
