@@ -84,10 +84,13 @@
     (let ((*symbol-table* (make-symbol-table *symbol-table*)))
       (list* :scope (apply #'append (call-transform))))))
 
-(parse 'scope
-"{ a:int a { a b:double a b { a@string a b } { a b > } a }")
-;
+;; TODO these are interesting for "better errors"
+(parse
+ 'scope
+ "{ a:int a { a b:double a b { a@string a b } { a b > } a }")
 
-(parse 'scope
-"{ a:int } @")
-;
+(parse
+ 'scope
+ "{ a:int a { a b:double a b { a @string a b } { a b > } a }")
+
+(parse 'scope "{ a:int a } @")
