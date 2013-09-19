@@ -358,16 +358,16 @@
     (and "123" "4"))
 
 (test condition.1
-  "Test signaling of `esrap-simple-parse-error' conditions for failed
+  "Test signaling of `esrap-parse-error' conditions for failed
    parses."
   (macrolet
       ((signals-esrap-error ((input position &optional messages) &body body)
          (once-only (position)
            `(progn
-              (signals (esrap-error)
+              (signals (esrap-parse-error)
                 ,@body)
               (handler-case (progn ,@body)
-                (esrap-error (condition)
+                (esrap-parse-error (condition)
                   (is (string= (esrap-error-text condition) ,input))
                   (when ,position
                     (is (= (esrap-error-position condition) ,position)))
