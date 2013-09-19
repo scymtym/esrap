@@ -797,23 +797,20 @@ in which the first two return values cannot indicate failures."
 
 (defun print-expression (stream expression &optional colon? at?)
   (declare (ignore colon? at?))
-  (destructuring-bind (expression (&optional from to) &optional comment) expression
-    (let ((*print-pprint-dispatch* (copy-pprint-dispatch *print-pprint-dispatch*)))
-      (set-pprint-dispatch 'string (lambda (stream x)
-                                     (write-char #\" stream)
-                                     (write-string x stream)
-                                     (write-char #\" stream)))
-      (set-pprint-dispatch 'character (lambda (stream x)
-                                        (if (or (not (graphic-char-p x))
-                                                (member x '(#\Space #\Tab #\Newline)))
-                                            (write-string (char-name x) stream)
-                                            (progn
-                                              (write-char #\" stream)
-                                              (write-char x stream)
-                                              (write-char #\" stream)))))
-      (princ expression stream))
-    #+no (format stream "~@[ ~{from ~D to ~D~}~]~@[ ~A~]"
-            (when from (list from to)) comment)))
+  (let ((*print-pprint-dispatch* (copy-pprint-dispatch *print-pprint-dispatch*)))
+    (set-pprint-dispatch 'string (lambda (stream x)
+                                   (write-char #\" stream)
+                                   (write-string x stream)
+                                   (write-char #\" stream)))
+    (set-pprint-dispatch 'character (lambda (stream x)
+                                      (if (or (not (graphic-char-p x))
+                                              (member x '(#\Space #\Tab #\Newline)))
+                                          (write-string (char-name x) stream)
+                                          (progn
+                                            (write-char #\" stream)
+                                            (write-char x stream)
+                                            (write-char #\" stream)))))
+    (princ (first expression) stream)))
 
 ;; TODO for incomplete parses: only consider FAILED-PARSE results
 ;; behind POSITION => this is attempted in (if-let ((failed (or (remove-if below
