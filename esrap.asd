@@ -50,7 +50,7 @@
 (defsystem :esrap-tests
   :description "Tests for ESRAP."
   :licence "MIT"
-  :depends-on (:esrap :eos)
+  :depends-on (:esrap :fiveam)
   :serial     t
   :components ((:file "example-left-recursion")
                (:file "example-function-terminals")

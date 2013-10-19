@@ -1,5 +1,5 @@
 ;;;;  Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;;  Copyright (c) 2012-2013 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;;  Copyright (c) 2012-2014 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;;  Permission is hereby granted, free of charge, to any person
 ;;;;  obtaining a copy of this software and associated documentation files
@@ -20,7 +20,7 @@
 (in-package :cl-user)
 
 (defpackage :esrap-tests
-  (:use :alexandria :cl :esrap :eos)
+  (:use :alexandria :cl :esrap :fiveam)
   (:shadowing-import-from :esrap "!")
   (:export #:run-tests))
 
@@ -633,7 +633,4 @@
 ;;; Test runner
 
 (defun run-tests ()
-  (let ((results (run 'esrap)))
-    (eos:explain! results)
-    (unless (eos:results-status results)
-      (error "Tests failed."))))
+  (run! 'esrap))
