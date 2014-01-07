@@ -1774,6 +1774,9 @@ but clause heads designate kinds of expressions instead of types. See
 (defvar *indentation-hint-table* nil)
 
 (defun hint-slime-indentation ()
+  ;; See https://github.com/nikodemus/esrap/issues/24.
+  (unless (member "SWANK-INDENTATION" *modules* :test #'string=)
+    (return-from hint-slime-indentation))
   (when-let* ((swank (find-package :swank))
               (tables (find-symbol (string '#:*application-hints-tables*) swank))
               (table (make-hash-table :test #'eq)))
