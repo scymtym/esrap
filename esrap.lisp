@@ -133,12 +133,12 @@ the error occurred."))
                             start))
                (*print-circle* nil))
           (format stream "At~2%~
-                          ~2@T~A~%~
+                          ~2@T~<~@;~A~:>~%~
                           ~2@T~V@T^ (Line ~D, Column ~D, Position ~D)~2%"
-                  (if (emptyp text)
-                      ""
-                      (subseq text start end))
-                  (- position newline)
+                  (list (if (emptyp text)
+                            ""
+                            (subseq text start end)))
+                  (max (- position newline 1) 0)
                   (1+ line) (1+ column)
                   position))
         (format stream "~2&<text and position not available>~2%")))))
@@ -191,20 +191,31 @@ the error occurred."))
   (mapcar (lambda (x) (list (describe-terminal x) nil)) ; TODO remove second element?
           (expression-start-terminals
            (first
-            (find-if (lambda (y) (= (first
-                                     (second
-                                      (lastcar (parse-attempt-expressions attempt))))
-                                    (first (second y))))
+            (find-if (lambda (y)
+                       (eql (first
+                             (second
+                              (lastcar (parse-attempt-expressions attempt))))
+                            (first (second y))))
                      (parse-attempt-expressions attempt))))))
 
 (defmethod print-object ((object parse-attempt) stream)
-  (format stream "Could not parse ~/esrap:print-expression/. ~
-                  Expected:~2%     ~{~{~A~@[ [~A]~]~}~^~%  or ~}~2%~
-                  Reached via~2&~
-                  ~<     ~{~/esrap:print-expression/~^~%  -> ~}~>"
-          (parse-attempt-nonterminal-expression object)
-          (parse-attempt-expected object)
-          (parse-attempt-expressions object)))
+
+  (cond
+    (*print-readably*
+     (call-next-method))
+    (*print-escape*
+     (print-unreadable-object (object stream :type t :identity t)
+       (format stream "~@[@~D ~](~D)"
+               (parse-attempt-position object)
+               (length (parse-attempt-expressions object)))))
+    (t
+     (format stream "Could not parse ~/esrap:print-expression/. ~
+                     Expected:~2%     ~{~{~A~@[ [~A]~]~}~^~%  or ~}~2%~
+                     Reached via~2&~
+                     ~<     ~{~/esrap:print-expression/~^~%  -> ~}~>"
+             (parse-attempt-nonterminal-expression object)
+             (parse-attempt-expected object)
+             (parse-attempt-expressions object)))))
 
 (define-condition esrap-parse-error (esrap-error)
   ;; Stores a list of PARSE-ATTEMPT instances which describe zero or
@@ -213,27 +224,29 @@ the error occurred."))
   ;; parse a piece of the input, was reached or which characters would
   ;; have been expected.
   ((attempts :initarg :attempts
-             :type list #|of parse-attempt|#
-             :reader esrap-parse-error-attempts))
+             :type    list #|of parse-attempt|#
+             :reader  esrap-parse-error-attempts))
   (:default-initargs :attempts (required-argument :attempts))
   (:documentation
    "This error is signaled when a parse attempt fails."))
 
 (defmethod print-object ((object esrap-parse-error) stream)
-  (format stream "~{~A~^~2%Alternatively: ~}"
-          (esrap-parse-error-attempts object)))
+  (if *print-escape*
+      (print-unreadable-object (object stream :type t :identity t)
+        (format stream "~@[@~D ~](~D)"
+                (esrap-error-position object)
+                (length (esrap-parse-error-attempts object))))
+      (format stream "~{~A~^~2%Alternatively: ~}"
+              (esrap-parse-error-attempts object))))
 
 (declaim (ftype (function (string non-negative-integer list)
                           (values nil &optional))
                 esrap-parse-error))
-(defun esrap-parse-error (text position attemps #+no (expression path expected))
+(defun esrap-parse-error (text position attemps)
   (error 'esrap-parse-error
-         :text text
+         :text     text
          :position position
-         :attempts attemps
-         #+no (:expression expression
-          :path path
-          :expected expected)))
+         :attempts attemps))
 
 (define-condition incomplete-parse-error (esrap-error)
   ()
@@ -429,7 +442,6 @@ constructors."))
 (defun set-cell-info (cell function rule)
   ;; Atomic update
   (setf (cell-%info cell) (cons function rule))
-  (let ())
   cell)
 
 (defun undefined-rule-function (symbol)
@@ -831,14 +843,16 @@ in which the first two return values cannot indicate failures."
                                   (failed-parse-position (first expression))))
                       (expressions (rest expression))))))
            (results (e)
-             (etypecase e ;; TODO e might be INACTIVE-RULE?
+             (etypecase e
+               (condition
+                (list (list e)))
+               (inactive-rule
+                (list (list e))) ; TODO is this the right thing to do?
                (failed-parse
                 (map-product
                  #'list*
                  (list e) (or (mappend #'results (ensure-list (failed-parse-detail e)))
-                              (list nil))))
-               (condition
-                (list (list e)))))
+                              (list nil))))))
            (innermost-position (derivation)
              (failed-parse-position ; TODO what if NIL?
               (find-if (of-type 'failed-parse) derivation :from-end t))))
