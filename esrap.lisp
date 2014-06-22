@@ -1161,7 +1161,7 @@ inspection."
 
 ;;; EXPRESSION COMPILER & EVALUATOR
 
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :execute)
   (defmacro expression-case (expression &body clauses)
     "Similar to
 
