@@ -414,6 +414,7 @@ is not attached to any nonterminal."
   (setf (slot-value rule '%symbol) nil))
 
 (defmethod shared-initialize :after ((rule rule) slots &key)
+  (declare (ignore slots))
   (check-expression (rule-expression rule)))
 
 (defmethod print-object ((rule rule) stream)
