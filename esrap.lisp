@@ -49,7 +49,6 @@
    #:add-rule
    #:call-transform
    #:change-rule
-   #:concat
    #:defrule
    #:describe-grammar
    #:esrap-error
@@ -206,19 +205,6 @@ Catenates all the strings in arguments into a single string."
                    (character (write-char elt s))
                    (list (cat-list elt))))))
       (cat-list arguments))))
-
-(setf (symbol-function 'concat) (symbol-function 'text))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun note-deprecated (old new)
-    (warn 'simple-style-warning
-          :format-control "~S is deprecated, use ~S instead."
-          :format-arguments (list old new))))
-
-(define-compiler-macro concat (&whole form &rest arguments)
-  (declare (ignore arguments))
-  (note-deprecated 'concat 'text)
-  form)
 
 (defun text/bounds (strings start end)
   (declare (ignore start end))
@@ -864,10 +850,6 @@ Following OPTIONS can be specified:
                  (set-guard expr `(lambda () ,expr))))
             ((:constant value)
              (set-transform `(constantly ,value) `(constantly ,value)))
-            ((:concat value)
-             (note-deprecated :concat :text)
-             (when value
-               (set-transform '#'text/bounds '#'text)))
             ((:text value)
              (when value
                (set-transform '#'text/bounds '#'text)))

@@ -9,7 +9,7 @@ Esrap TODO
 
     ...and even if the whole parse fails, we use the additional
     information only to display a fancy error message.
-    
+
     So: unless PARSE has been called with :DEBUG T, use the fixnum
     indicating the position to indicate a failed parse.
 
@@ -68,5 +68,4 @@ Esrap TODO
 * Transform Subseq
   (defrule decimal (+ (or "0" "1" ...))
     (:subseq-function parse-integer))
-
-
+* DONE Remove =concat=
