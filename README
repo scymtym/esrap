@@ -29,7 +29,7 @@ References:
 Licence:
 
  Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
- Copyright (c) 2012-2013 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+ Copyright (c) 2012-2014 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 
  Permission is hereby granted, free of charge, to any person
  obtaining a copy of this software and associated documentation files
@@ -49,21 +49,23 @@ Licence:
 
 Syntax overview:
 
- <literal>                 -- case-sensitive terminal
- (~ <literal>)             -- case-insensitive terminal
- character                 -- any single character
- (string length)           -- any string of length
- (not expression)          -- complement of expression
- (character-ranges ranges) -- character ranges
- (and &rest sequence)
- (or &rest ordered-choices)
- (* greedy-repetition)
- (+ greedy-positive-repetition)
- (? optional)
- (& followed-by)           -- does not consume
- (! not-followed-by)       -- does not consume
- (<predicate> expr)        -- semantic parsing
- (function <function>)     -- call <function> to parse some text
+ <literal>                   -- case-sensitive terminal
+ (~ <literal>)               -- case-insensitive terminal
+ character                   -- any single character
+ (string <length>)           -- any string of length
+ (character-ranges <ranges>) -- character ranges
+ (<predicate> <expr>)        -- semantic parsing
+ (function <function>)       -- call <function> to parse some text
+
+ (not <expr>)                -- complement of expression
+ (and &rest <exprs>)         -- sequence
+ (or &rest <exprs>)          -- ordered-choices
+
+ (* <expr>)                  -- greedy-repetition
+ (+ <expr>)                  -- greedy-positive-repetition
+ (? <expr>)                  -- optional
+ (& <expr>)                  -- followed-by; does not consume
+ (! <expr>)                  -- not-followed-by; does not consume
 
 Example files:
 
