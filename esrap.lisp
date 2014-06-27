@@ -1449,6 +1449,9 @@ but clause heads designate kinds of expressions instead of types. See
       (character-ranges
        (possibly "a character ~{~{~C - ~C~}~^ or ~}"
                  (rest expression)))
+      (function
+       (possibly "any string that can be parsed by ~S"
+                 (second expression)))
       (terminal
        (labels ((rec (thing)
                   (etypecase thing
