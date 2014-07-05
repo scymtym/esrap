@@ -241,7 +241,9 @@
 (test function-terminals.parse-5-as.condition
   "Test using PARSE-A as a terminal."
   (handler-case
-      (parse 'function-terminals.parse-5-as "aaaab")
+      (progn
+        (parse 'function-terminals.parse-5-as "aaaab")
+        (fail "Failed to signal a ~S" 'esrap-error))
     (esrap-error (condition)
       (is (eql 4 (esrap-error-position condition)))
       (is (search "Expected \"a\"." (princ-to-string condition))))))
@@ -370,38 +372,49 @@
                 (esrap-parse-error (condition)
                   (is (string= (esrap-error-text condition) ,input))
                   (when ,position
-                    (is (= (esrap-error-position condition) ,position)))
+                    (is (= (esrap-error-position condition) ,position)
+                        "When parsing ~S, position was ~S [expected ~S]"
+                        ,input (esrap-error-position condition) ,position))
                   ,@(when messages
                       `((let ((report (princ-to-string condition)))
                           ,@(mapcar (lambda (message)
                                       `(is (search ,message report)))
                                     (ensure-list messages)))))))))))
     ;; Rule does not allow empty string.
-    (signals-esrap-error ("" 0 ("Could not parse subexpression"
-                                "Encountered at"))
+    (signals-esrap-error ("" 0 ("At" "^ (Line 1, Column 0, Position 0)"
+                                "Could not parse DIGITS"))
       (parse 'integer ""))
+
     ;; Junk at end of input.
-    (signals-esrap-error ("123foo" 3 ("Could not parse subexpression"
-                                      "Encountered at"))
+    (signals-esrap-error ("123foo" 3 ("At" "^ (Line 1, Column 3, Position 3)"
+                                      "Could not parse INTEGER"))
       (parse '(or integer common-prefix-with-integer) "123foo"))
 
     ;; No nonterminal.
-    (parse '(and "1" (and "2" "3" "4")) "123foo")
+    (signals-esrap-error ("123foo" 3 ("At" "^ (Line 1, Column 3, Position 3)"
+                                      "Could not parse (AND \"1\""))
+      (parse '(and "1" (and "2" "3" "4")) "123foo"))
+
     ;; Whitespace not allowed.
-    (signals-esrap-error ("1, " 1 ("Incomplete parse."
-                                   "Encountered at"))
+    (signals-esrap-error ("1, " 3 ("At" "^ (Line 1, Column 3, Position 3)"
+                                   #+TODO-no "Incomplete parse."
+                                   "Could not parse DIGITS"))
       (parse 'list-of-integers "1, "))
+
     ;; Rule not active at toplevel.
     (signals-esrap-error ("foo" nil ("Rule" "not active"))
       (parse 'maybe-active "foo"))
+
     ;; Rule not active at subexpression-level.
-    (signals-esrap-error ("ffoo" 1 ("Could not parse subexpression"
-                                    "(not active)"
-                                    "Encountered at"))
+    (signals-esrap-error ("ffoo" 1 ("At" "(Line 1, Column 1, Position 1)"
+                                    "Could not parse MAYBE-ACTIVE."
+                                    "Rule MAYBE-ACTIVE not active"))
       (parse '(and "f" maybe-active) "ffoo"))
+
     ;; Failing function terminal.
     (signals-esrap-error ("(1 2" 0 ("FUNCTION-TERMINALS.INTEGER"
                                     "Encountered at"))
+
      (parse 'function-terminals.integer "(1 2"))))
 
 (test parse.string
@@ -642,7 +655,7 @@
 (test example-function-terminals.read.smoke
   "Using CL:READ as a terminal."
   (macrolet ((test-case (input expected)
-               `(is (equal ,expected
+               `(assert (equal ,expected
                            (with-standard-io-syntax
                              (parse 'esrap-example.function-terminals:common-lisp
                                     ,input))))))
