@@ -138,9 +138,8 @@ the error occurred."))
                   (list (if (emptyp text)
                             ""
                             (subseq text start end)))
-                  (max (- position newline 1) 0)
-                  (1+ line) (1+ column)
-                  position))
+                  (- position newline)
+                  (1+ line) (1+ column) position))
         (format stream "~2&<text and position not available>~2%")))))
 
 (define-condition simple-esrap-error (esrap-error simple-condition) ())
