@@ -187,7 +187,7 @@ the error occurred."))
 
 ;; TODO
 (defun parse-attempt-expected (attempt)
-  (mapcar (lambda (x) (list (describe-terminal x) nil)) ; TODO remove second element?
+  (mapcar #'describe-terminal
           (expression-start-terminals
            (first
             (find-if (lambda (y)
@@ -208,11 +208,25 @@ the error occurred."))
                (parse-attempt-position object)
                (length (parse-attempt-expressions object)))))
     (t
-     (format stream "Could not parse ~/esrap:print-expression/. ~
-                     Expected:~2%     ~{~{~A~@[ [~A]~]~}~^~%  or ~}~2%~
-                     Reached via~2&~
-                     ~<     ~{~/esrap:print-expression/~^~%  -> ~}~>"
+     ;; TODO is the second element of the expected part actually used?
+     (format stream "~@<Could not parse ~/esrap:print-expression/. ~
+                     ~@[Reason:~@:_~@:_~
+                       ~2@T~A~
+                     ~@:_~@:_~]~
+                     Expected:~@:_~@:_~
+                     ~[~
+                       <nothing> (should not happen)~
+                       ~;~
+                       ~2@T~{~A~}~
+                       ~:;~
+                       ~5@T~{~A~^~@:_  or ~}~
+                     ~]~
+                     ~@:_~@:_~
+                     Reached via~@:_~@:_~
+                     ~@<~5@T~{~/esrap:print-expression/~^~@:_~2@T-> ~}~:>~:>"
              (parse-attempt-nonterminal-expression object)
+             (third (lastcar (parse-attempt-expressions object))) ; TODO explain/function
+             (length (parse-attempt-expected object))
              (parse-attempt-expected object)
              (parse-attempt-expressions object)))))
 
@@ -822,6 +836,11 @@ in which the first two return values cannot indicate failures."
                                             (write-char x stream)
                                             (write-char #\" stream)))))
     (princ (first expression) stream)))
+
+(defun print-expression-error (stream expression &optional colon? at?)
+  (declare (ignore colon? at?))
+  (format stream "~/esrap:print-expression/~@[ (~A)~]"
+          expression (third expression)))
 
 ;; TODO for incomplete parses: only consider FAILED-PARSE results
 ;; behind POSITION => this is attempted in (if-let ((failed (or (remove-if below
