@@ -848,29 +848,50 @@ in which the first two return values cannot indicate failures."
   ;; Note: this function has to be called when *CACHE* still contains
   ;; partial results from the failed parse.
   (labels ((expressions (expression)
-             ;; Return a list of items of the form
-             ;; ((NAME | EXPRESSION) (&optional START END) &optional COMMENT)
+             "Transform EXPRESSION which is of the form
+
+
+
+              into a list of items of the form
+
+                ((NAME | EXPRESSION) (&optional START END) &optional COMMENT)"
              (etypecase (first expression)
-               ((or null condition)
+               ((or condition string)
+                (error "cannot happen"))
+               (null
                 '())
                (inactive-rule
-                (list (list (inactive-rule-rule (first expression)) nil "(not active)")))
+                (let ((rule (inactive-rule-rule (first expression))))
+                  (list (list rule nil (format nil "Rule ~S not active" rule)))))
                (failed-parse
                 (cons (list (failed-parse-expression (first expression))
                             (list (failed-parse-start (first expression))
-                                  (failed-parse-position (first expression))))
+                                  (failed-parse-position (first expression)))
+                            (let ((detail (failed-parse-detail (first expression))))
+                              (unless (every (of-type '(or failed-parse inactive-rule)) (ensure-list detail))
+                                (assert (typep detail '(or condition string)))
+                                detail)))
                       (expressions (rest expression))))))
            (results (e)
              (etypecase e
-               (condition
-                (list (list e)))
+               ((or condition string)
+                #+no (list (list e))
+                (error "cannot happen"))
                (inactive-rule
                 (list (list e))) ; TODO is this the right thing to do?
                (failed-parse
-                (map-product
-                 #'list*
-                 (list e) (or (mappend #'results (ensure-list (failed-parse-detail e)))
-                              (list nil))))))
+                #+no (let* ((details  (ensure-list (failed-parse-detail e)))
+                       (children (find-if #'failed-parse-p details))
+                       (other    (set-difference details children)))
+                  (map-product
+                   #'list*
+                   (list e) (or (mappend #'results children) (list nil))))
+                (let ((detail (failed-parse-detail e)))
+                  (if (every (of-type '(or failed-parse inactive-rule)) (ensure-list detail))
+                      (map-product
+                       #'list*
+                       (list e) (or (mappend #'results (ensure-list detail)) (list nil)))
+                      (list (list e)))))))
            (innermost-position (derivation)
              (failed-parse-position ; TODO what if NIL?
               (find-if (of-type 'failed-parse) derivation :from-end t))))
@@ -890,7 +911,10 @@ in which the first two return values cannot indicate failures."
                   interesting)
              #+no (min (reduce #'min foo :key (compose #'failed-parse-start #'first)))
              #+no (the-rules (remove min foo :test #'/= :key (compose #'failed-parse-start #'first)))
-             (the-rules foo)
+             (the-rules (remove-if (lambda (result)
+                                     (find result (remove result foo)
+                                           :test (conjoin #'subsetp (compose #'not #'eq))))
+                                   foo))
              (attempts (mapcar (compose #'make-parse-attempt #'expressions) the-rules)))
         (esrap-parse-error text max attempts))
       ;; No failures => incomplete parse. ; TODO right?
