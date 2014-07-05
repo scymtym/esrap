@@ -1493,7 +1493,7 @@ but clause heads designate kinds of expressions instead of types. See
        (possibly "a character ~{~{~C - ~C~}~^ or ~}"
                  (rest expression)))
       (function
-       (possibly "any string that can be parsed by ~S"
+       (possibly "any string that can be parsed by the function ~S"
                  (second expression)))
       (terminal
        (labels ((rec (thing)
