@@ -1064,6 +1064,7 @@ Following OPTIONS can be specified:
             ((:lambda lambda-list &body forms)
              (multiple-value-bind (lambda-list start end ignore)
                  (parse-lambda-list-maybe-containing-&bounds lambda-list)
+               (declare (type list ignore))
                (apply #'set-transform
                       `(lambda (,@lambda-list ,start ,end)
                          (declare (ignore ,@ignore))
