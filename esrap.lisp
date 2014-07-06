@@ -113,33 +113,33 @@ the error occurred."))
     (when (or (not *print-lines*) (> *print-lines* 1))
       (if-let ((text (esrap-error-text condition))
                (position (esrap-error-position condition)))
-        (let* ((line (count #\Newline text :end position))
-               (column (- position (or (position #\Newline text
-                                                 :end position
-                                                 :from-end t)
-                                       0)
-                          1))
-               ;; FIXME: magic numbers
-               (start (or (position #\Newline text
-                                    :start (max 0 (- position 32))
-                                    :end (max 0 (- position 24))
-                                    :from-end t)
-                          (max 0 (- position 24))))
-               (end (min (length text) (+ position 24)))
-               (newline (or (position #\Newline text
-                                      :start start
-                                      :end position
-                                      :from-end t)
-                            start))
-               (*print-circle* nil))
-          (format stream "At~2%~
+        (labels ((safe-start (index)
+                   (max index 0))
+                 (safe-end (index)
+                   (min index (length text)))
+                 (find-newline (&key (start 0) (end (length text)) (from-end t))
+                   (position #\Newline text
+                             :start    (safe-start start)
+                             :end      (safe-end end)
+                             :from-end from-end)))
+          (let* ((line    (count #\Newline text :end position))
+                 (column  (- position (or (find-newline :end position) 0) 1))
+                 ;; FIXME: magic numbers
+                 (start   (if-let ((newline (find-newline :start (- position 32)
+                                                          :end   position)))
+                            (1+ newline)
+                            (safe-start (- position 32))))
+                 (end     (or (find-newline :start position :from-end nil)
+                              (safe-end (+ position 24))))
+                 (*print-circle* nil))
+            (format stream "At~:[~:; end of input~]~2%~
                           ~2@T~<~@;~A~:>~%~
                           ~2@T~V@T^ (Line ~D, Column ~D, Position ~D)~2%"
-                  (list (if (emptyp text)
-                            ""
-                            (subseq text start end)))
-                  (- position newline)
-                  (1+ line) (1+ column) position))
+                    (= position (length text))
+                    (list (subseq text start end))
+                    (- position start)
+                    (1+ line) (1+ column) position)))
+
         (format stream "~2&<text and position not available>~2%")))))
 
 (define-condition simple-esrap-error (esrap-error simple-condition) ())
@@ -158,11 +158,20 @@ the error occurred."))
          :format-control format-control
          :format-arguments format-arguments))
 
+(defstruct (expression-attempt
+             (:constructor make-expression-attempt (expression position &optional comment))
+             (:copier nil))
+  (expression (required-argument :expression) :type (or symbol cons)       :read-only t)
+  (position   (required-argument :position)   :type (cons integer integer) :read-only t)
+  (comment    nil                             :type (or null string)       :read-only t))
+
 ;; Describes a failed attempt to apply a stack of expressions at
 ;; particular respective positions in the input. A failed parse may be
 ;; described as one or more failed PARSE-ATTEMPTs starting with one or
 ;; more different rules.
-(defstruct (parse-attempt (:constructor make-parse-attempt (expressions)))
+(defstruct (parse-attempt (:constructor make-parse-attempt (prefix paths))
+                          (:copier nil))
+  (prefix (required-argument :prefix) :type list #|of expression-attempt|# :read-only t)
   ;; Elements are of the form
   ;;
   ;;   ((NAME | EXPRESSION) (&optional START END) &optional COMMENT)
@@ -170,35 +179,47 @@ the error occurred."))
   ;; where NAME or EXPRESSION represents a rule or expression which
   ;; failed at region of the input bounded by START and END. COMMENT
   ;; is an optional string explaining the failure.
-  (expressions (required-argument :expressions) :type list :read-only t))
+  (paths  (required-argument :paths)  :type list #|of list of expression-attempt|# :read-only t))
+
+(defun parse-attempt-expressions (attempt) ; TODO hack
+  (first (parse-attempt-paths attempt)))
 
 ;; Return the position up to which ATTEMPT consumed the input.
 (defun parse-attempt-position (attempt)
   (second (second (lastcar (parse-attempt-expressions attempt)))))
 
+(defun parse-attempt-failed-expression (attempt)
+  (let* ((prefix      (parse-attempt-prefix attempt))
+         (expressions (parse-attempt-expressions attempt))
+         (innermost   (lastcar expressions)))
+    (or (find (first (second innermost)) prefix
+              :key (compose #'first #'second))
+        (lastcar prefix))))
+
 ;; Starting at the top of the expression stack of ATTEMPT, find and
 ;; return the first nonterminal expression. If there is none, return
 ;; the top of the stack.
 (defun parse-attempt-nonterminal-expression (attempt)
-  (let ((expressions (parse-attempt-expressions attempt)))
+  (let ((expressions (parse-attempt-prefix attempt)))
     (or (find-if (of-type 'nonterminal) expressions
                  :key #'first :from-end t)
         (first expressions))))
 
-;; TODO
+(defun parse-attempt-interesting-expressions (attempt)
+  (let ((expressions (parse-attempt-expressions attempt))
+        (expression  (parse-attempt-failed-expression attempt)))
+    (subseq expressions (position expression expressions :test #'equal))))
+
 (defun parse-attempt-expected (attempt)
-  (mapcar #'describe-terminal
-          (expression-start-terminals
-           (first
-            (find-if (lambda (y)
-                       (eql (first
-                             (second
-                              (lastcar (parse-attempt-expressions attempt))))
-                            (first (second y))))
-                     (parse-attempt-expressions attempt))))))
+  (reduce (rcurry #'union :test #'equalp) (parse-attempt-paths attempt)
+          :key (lambda (path)
+                 (let ((expression (or (find-if (of-type 'nonterminal) path
+                                                :key #'first :from-end t)
+                                       (first path))))
+                   (expression-start-terminals
+                    (first expression))))))
 
 (defmethod print-object ((object parse-attempt) stream)
-
   (cond
     (*print-readably*
      (call-next-method))
@@ -208,27 +229,28 @@ the error occurred."))
                (parse-attempt-position object)
                (length (parse-attempt-expressions object)))))
     (t
-     ;; TODO is the second element of the expected part actually used?
-     (format stream "~@<Could not parse ~/esrap:print-expression/. ~
-                     ~@[Reason:~@:_~@:_~
-                       ~2@T~A~
-                     ~@:_~@:_~]~
-                     Expected:~@:_~@:_~
-                     ~[~
-                       <nothing> (should not happen)~
-                       ~;~
-                       ~2@T~{~A~}~
-                       ~:;~
-                       ~5@T~{~A~^~@:_  or ~}~
-                     ~]~
-                     ~@:_~@:_~
-                     Reached via~@:_~@:_~
-                     ~@<~5@T~{~/esrap:print-expression/~^~@:_~2@T-> ~}~:>~:>"
-             (parse-attempt-nonterminal-expression object)
-             (third (lastcar (parse-attempt-expressions object))) ; TODO explain/function
-             (length (parse-attempt-expected object))
-             (parse-attempt-expected object)
-             (parse-attempt-expressions object)))))
+     (let ((expected (parse-attempt-expected object)))
+       (format stream "~@<Could not parse ~/esrap:print-expression/. ~
+                         ~@[Reason:~@:_~@:_~
+                           ~2@T~A~
+                         ~@:_~@:_~]~
+                         Expected:~@:_~@:_~
+                         ~[~
+                           <nothing> (should not happen)~
+                           ~;~
+                           ~2@T~{~A~}~
+                           ~:;~
+                           ~5@T~{~A~^~@:_  or ~}~
+                         ~]~@[~
+                         ~@:_~@:_~
+                         Reached via~@:_~@:_~
+                         ~@<~5@T~{~/esrap:print-expression/~^~@:_~2@T-> ~}~:>~]~
+                       ~:>"
+               (parse-attempt-nonterminal-expression object)
+               (third (lastcar (parse-attempt-expressions object))) ; TODO explain/function
+               (length expected)
+               (mapcar #'describe-terminal expected)
+               (parse-attempt-expressions object))))))
 
 (define-condition esrap-parse-error (esrap-error)
   ;; Stores a list of PARSE-ATTEMPT instances which describe zero or
@@ -244,13 +266,14 @@ the error occurred."))
    "This error is signaled when a parse attempt fails."))
 
 (defmethod print-object ((object esrap-parse-error) stream)
-  (if *print-escape*
-      (print-unreadable-object (object stream :type t :identity t)
-        (format stream "~@[@~D ~](~D)"
-                (esrap-error-position object)
-                (length (esrap-parse-error-attempts object))))
-      (format stream "~{~A~^~2%Alternatively: ~}"
-              (esrap-parse-error-attempts object))))
+  (handler-bind ((error (lambda (c) (sb-debug:print-backtrace))))
+   (if *print-escape*
+       (print-unreadable-object (object stream :type t :identity t)
+         (format stream "~@[@~D ~](~D)"
+                 (esrap-error-position object)
+                 (length (esrap-parse-error-attempts object))))
+       (format stream "~@<~{~A~^~@:_~@:_~}~@:>"
+               (esrap-parse-error-attempts object)))))
 
 (declaim (ftype (function (string non-negative-integer list)
                           (values nil &optional))
@@ -824,20 +847,15 @@ in which the first two return values cannot indicate failures."
   (declare (ignore colon? at?))
   (let ((*print-pprint-dispatch* (copy-pprint-dispatch *print-pprint-dispatch*)))
     (set-pprint-dispatch 'string (lambda (stream x)
-                                   (write-char #\" stream)
-                                   (write-string x stream)
-                                   (write-char #\" stream)))
+                                   (write x :stream stream :escape t :pretty nil)))
     (set-pprint-dispatch 'character (lambda (stream x)
                                       (if (or (not (graphic-char-p x))
                                               (member x '(#\Space #\Tab #\Newline)))
                                           (write-string (char-name x) stream)
-                                          (progn
-                                            (write-char #\" stream)
-                                            (write-char x stream)
-                                            (write-char #\" stream)))))
+                                          (write (string x) :stream stream :escape t :pretty nil))))
     (princ (first expression) stream)))
 
-(defun print-expression-error (stream expression &optional colon? at?)
+#+no (defun print-expression-error (stream expression &optional colon? at?)
   (declare (ignore colon? at?))
   (format stream "~/esrap:print-expression/~@[ (~A)~]"
           expression (third expression)))
@@ -847,78 +865,127 @@ in which the first two return values cannot indicate failures."
 (defun explain-failed-parse (result text &optional position)
   ;; Note: this function has to be called when *CACHE* still contains
   ;; partial results from the failed parse.
-  (labels ((expressions (expression)
-             "Transform EXPRESSION which is of the form
+  (let ((ignore '()))
+    (labels ((expressions (expression)
+               "Transform EXPRESSION which is of the form
 
 
 
               into a list of items of the form
 
                 ((NAME | EXPRESSION) (&optional START END) &optional COMMENT)"
-             (etypecase (first expression)
-               ((or condition string)
-                (error "cannot happen"))
-               (null
-                '())
-               (inactive-rule
-                (let ((rule (inactive-rule-rule (first expression))))
-                  (list (list rule nil (format nil "Rule ~S not active" rule)))))
-               (failed-parse
-                (cons (list (failed-parse-expression (first expression))
-                            (list (failed-parse-start (first expression))
-                                  (failed-parse-position (first expression)))
-                            (let ((detail (failed-parse-detail (first expression))))
-                              (unless (every (of-type '(or failed-parse inactive-rule)) (ensure-list detail))
-                                (assert (typep detail '(or condition string)))
-                                detail)))
-                      (expressions (rest expression))))))
-           (results (e)
-             (etypecase e
-               ((or condition string)
-                #+no (list (list e))
-                (error "cannot happen"))
-               (inactive-rule
-                (list (list e))) ; TODO is this the right thing to do?
-               (failed-parse
-                #+no (let* ((details  (ensure-list (failed-parse-detail e)))
-                       (children (find-if #'failed-parse-p details))
-                       (other    (set-difference details children)))
-                  (map-product
-                   #'list*
-                   (list e) (or (mappend #'results children) (list nil))))
-                (let ((detail (failed-parse-detail e)))
-                  (if (every (of-type '(or failed-parse inactive-rule)) (ensure-list detail))
-                      (map-product
-                       #'list*
-                       (list e) (or (mappend #'results (ensure-list detail)) (list nil)))
-                      (list (list e)))))))
-           (innermost-position (derivation)
-             (failed-parse-position ; TODO what if NIL?
-              (find-if (of-type 'failed-parse) derivation :from-end t))))
-    ;; TODO FAILED can be '() when parsing fails due to a single inactive rule
-    (if-let ((failed (mappend #'results
-                              (or (remove-if (lambda (result)
-                                               (or (not (failed-parse-p result))
-                                                   (and position (< (failed-parse-start result) position))))
-                                             (hash-table-values *cache*))
-                                  (when (failed-parse-p result)
-                                    (list result))))))
-      (let* ((max (reduce #'max failed :key #'innermost-position))
-             (interesting (remove max failed :test #'/= :key #'innermost-position))
-             ;; TODO come up with new rule
-             (foo #+no (remove-if (lambda (x) (find (first x) (mappend #'identity (remove x interesting))))
-                             interesting)
-                  interesting)
-             #+no (min (reduce #'min foo :key (compose #'failed-parse-start #'first)))
-             #+no (the-rules (remove min foo :test #'/= :key (compose #'failed-parse-start #'first)))
-             (the-rules (remove-if (lambda (result)
-                                     (find result (remove result foo)
-                                           :test (conjoin #'subsetp (compose #'not #'eq))))
-                                   foo))
-             (attempts (mapcar (compose #'make-parse-attempt #'expressions) the-rules)))
-        (esrap-parse-error text max attempts))
-      ;; No failures => incomplete parse. ; TODO right?
-      (incomplete-parse-error text position))))
+               (etypecase (first expression)
+                 ((or condition string)
+                  (error "cannot happen"))
+                 (null ; TODO can this happen?
+                  '())
+                 (inactive-rule
+                  (let ((rule (inactive-rule-rule (first expression))))
+                    (list (list rule nil (format nil "Rule ~S not active" rule)))))
+                 (failed-parse
+                  (cons (list (failed-parse-expression (first expression))
+                              (list (failed-parse-start (first expression))
+                                    (failed-parse-position (first expression)))
+                              (let ((detail (failed-parse-detail (first expression))))
+                                (unless (every (of-type '(or failed-parse inactive-rule)) (ensure-list detail))
+                                  (assert (typep detail '(or condition string)))
+                                  detail)))
+                        (expressions (rest expression))))))
+             (results (e)
+               (etypecase e
+                 ((or condition string)
+                  #+no (list (list e))
+                  (error "cannot happen"))
+                 (inactive-rule
+                  (values (list (list e)) (list e))
+                  #+no (list (list e))) ; TODO is this the right thing to do?
+                 (failed-parse
+                  #+no (let* ((details  (ensure-list (failed-parse-detail e)))
+                              (children (find-if #'failed-parse-p details))
+                              (other    (set-difference details children)))
+                         (map-product
+                          #'list*
+                          (list e) (or (mappend #'results children) (list nil))))
+                  (if-let ((detail      (failed-parse-detail e)))
+                    (let* ((detail/list (ensure-list detail))
+                           (max         (reduce #'max detail/list
+                                                :key #'innermost-position))
+                           (interesting (remove max detail/list
+                                                :test #'/=
+                                                :key  #'innermost-position)))
+                     (cond
+                       ((not (every (of-type '(or failed-parse inactive-rule)) detail/list))
+                        #+no (list (list e))
+                        (error "cannot happen"))
+                       ((length= 0 interesting)
+                        #+no (list (list e))
+                        (error "cannot happen"))
+                       ((length= 1 interesting)
+                        (multiple-value-bind (paths truncated) (results (first interesting))
+                          (values
+                           (map-product #'list* (list e) paths)
+                           (list* e truncated)))
+                        #+no (list (list* e (first (results (first interesting))))))
+                       (t ; truncate at fork TODO explain in more detail
+                        #+no (dolist (child interesting)
+                          (dolist (result (results child))
+                            (push result ignore)))
+                        #+no (list (list e))
+                        #+no (list (list* e (first (results (first interesting)))))
+                        (values
+                         (map-product
+                          #'list*
+                          (list e) (or (mappend #'results interesting) (list nil)))
+                         (list e)))))
+
+                    (values (list (list e)) (list e))))))
+             (results* (result)
+               (multiple-value-bind (paths truncated) (results result)
+                (list result truncated paths)))
+             (innermost-position (result)
+               (etypecase result
+                 (inactive-rule
+                  0)
+                 (failed-parse
+                  (if-let ((detail/list (ensure-list (failed-parse-detail result)))) ; TODO local function
+                    (reduce #'max detail/list :key #'innermost-position)
+                    (failed-parse-position result)))))
+             #+old (innermost-position (derivation)
+               (failed-parse-position   ; TODO what if NIL?
+                (find-if (of-type 'failed-parse) derivation :from-end t))))
+      ;; TODO FAILED can be '() when parsing fails due to a single inactive rule
+      (if-let ((failed (progn #+was mappend #+was #'results
+                                (or (remove-if (lambda (result)
+                                                 (or (not (failed-parse-p result))
+                                                     #+no (and position (< (failed-parse-start result) position))))
+                                               (hash-table-values *cache*))
+                                    (when (failed-parse-p result)
+                                      (list result))))))
+        (let* ((max         (reduce #'max failed :key #'innermost-position))
+               (interesting (remove max failed :test #'/= :key #'innermost-position))
+               (interesting (mapcar #'results* interesting))
+               (the-rules   (remove-if (lambda (result)
+                                         (or
+                                          (member (first (first (expressions (second result))))
+                                                  '(:skipable :comment :whitespace) :test #'string=)
+                                          (find-if (lambda (other-result)
+                                                     (some (lambda (path)
+                                                             (find (first result) path :test #'eq))
+                                                           (third other-result)))
+                                                   (remove result interesting))
+                                             #+no (find-if (lambda (ignore)
+                                                     (find (first result) ignore :test #'eq))
+                                                   ignore)
+                                             #+no (find result (remove result interesting)
+                                                :test (conjoin #'subsetp (compose #'not #'eq)))))
+                                       interesting))
+               (attempts    (mapcar (lambda (result)
+                                      (make-parse-attempt (expressions (second result))
+                                                          (mapcar #'expressions (third result))))
+                                    the-rules)))
+          (esrap-parse-error text max attempts))
+        ;; No failures => incomplete parse. ; TODO right?
+        (incomplete-parse-error text position)))))
 
 (defun process-parse-result (result text start end junk-allowed)
   (cond
