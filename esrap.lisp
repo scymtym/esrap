@@ -185,8 +185,11 @@ the error occurred."))
   (first (parse-attempt-paths attempt)))
 
 ;; Return the position up to which ATTEMPT consumed the input.
-(defun parse-attempt-position (attempt)
-  (second (second (lastcar (parse-attempt-expressions attempt)))))
+(defun parse-attempt-position (attempt
+                               &optional
+                               (path (parse-attempt-expressions attempt)))
+  (values (second (second (lastcar path))) ; TODO proper interface; second function parse-attempt-start?
+          (first (second (lastcar path))))) ; TODO same for all paths?
 
 (defun parse-attempt-failed-expression (attempt)
   (let* ((prefix      (parse-attempt-prefix attempt))
@@ -201,7 +204,7 @@ the error occurred."))
 ;; the top of the stack.
 (defun parse-attempt-nonterminal-expression (attempt)
   (let ((expressions (parse-attempt-prefix attempt)))
-    (or (find-if (of-type 'nonterminal) expressions
+    (or (find-if (of-type 'nonterminal) expressions ; TODO repeated in parse-attempt-expected
                  :key #'first :from-end t)
         (first expressions))))
 
@@ -213,9 +216,12 @@ the error occurred."))
 (defun parse-attempt-expected (attempt)
   (reduce (rcurry #'union :test #'equalp) (parse-attempt-paths attempt)
           :key (lambda (path)
-                 (let ((expression (or (find-if (of-type 'nonterminal) path
-                                                :key #'first :from-end t)
-                                       (first path))))
+                 (let* ((start   (nth-value 1 (parse-attempt-position attempt path)))
+                        (expression (or (find-if (lambda (expression)
+                                                   (and (eql (first (second expression)) start)
+                                                        (typep (first expression) 'nonterminal)))
+                                                 path :from-end t)
+                                        (find start path :key (compose #'first #'second)))))
                    (expression-start-terminals
                     (first expression))))))
 
@@ -267,7 +273,7 @@ the error occurred."))
 
 (defmethod print-object ((object esrap-parse-error) stream)
   (handler-bind ((error (lambda (c) (sb-debug:print-backtrace))))
-   (if *print-escape*
+    (if *print-escape*
        (print-unreadable-object (object stream :type t :identity t)
          (format stream "~@[@~D ~](~D)"
                  (esrap-error-position object)
@@ -906,50 +912,51 @@ in which the first two return values cannot indicate failures."
                          (map-product
                           #'list*
                           (list e) (or (mappend #'results children) (list nil))))
-                  (if-let ((detail      (failed-parse-detail e)))
-                    (let* ((detail/list (ensure-list detail))
-                           (max         (reduce #'max detail/list
-                                                :key #'innermost-position))
-                           (interesting (remove max detail/list
-                                                :test #'/=
-                                                :key  #'innermost-position)))
-                     (cond
-                       ((not (every (of-type '(or failed-parse inactive-rule)) detail/list))
-                        #+no (list (list e))
-                        (error "cannot happen"))
-                       ((length= 0 interesting)
-                        #+no (list (list e))
-                        (error "cannot happen"))
-                       ((length= 1 interesting)
-                        (multiple-value-bind (paths truncated) (results (first interesting))
+                  (let* ((detail      (failed-parse-detail e))
+                         (detail/list (ensure-list detail)))
+                    (if-let ((detail/fail (remove-if-not (of-type '(or failed-parse inactive-rule)) detail/list)))
+                     (let* ((max         (reduce #'max detail/fail
+                                                 :key #'innermost-position))
+                            (interesting (remove max detail/fail
+                                                 :test #'/=
+                                                 :key  #'innermost-position)))
+                       (cond
+                         ((not (every (of-type '(or failed-parse inactive-rule)) detail/fail))
+                          #+no (list (list e))
+                          (error "cannot happen"))
+                         ((length= 0 interesting)
+                          #+no (list (list e))
+                          (error "cannot happen"))
+                         ((length= 1 interesting)
+                          (multiple-value-bind (paths truncated) (results (first interesting))
+                            (values
+                             (map-product #'list* (list e) paths)
+                             (list* e truncated)))
+                          #+no (list (list* e (first (results (first interesting))))))
+                         (t ; truncate at fork TODO explain in more detail
+                          #+no (dolist (child interesting)
+                                 (dolist (result (results child))
+                                   (push result ignore)))
+                          #+no (list (list e))
+                          #+no (list (list* e (first (results (first interesting)))))
                           (values
-                           (map-product #'list* (list e) paths)
-                           (list* e truncated)))
-                        #+no (list (list* e (first (results (first interesting))))))
-                       (t ; truncate at fork TODO explain in more detail
-                        #+no (dolist (child interesting)
-                          (dolist (result (results child))
-                            (push result ignore)))
-                        #+no (list (list e))
-                        #+no (list (list* e (first (results (first interesting)))))
-                        (values
-                         (map-product
-                          #'list*
-                          (list e) (or (mappend #'results interesting) (list nil)))
-                         (list e)))))
+                           (map-product
+                            #'list*
+                            (list e) (or (mappend #'results interesting) (list nil)))
+                           (list e)))))
 
-                    (values (list (list e)) (list e))))))
+                     (values (list (list e)) (list e)))))))
              (results* (result)
                (multiple-value-bind (paths truncated) (results result)
                 (list result truncated paths)))
              (innermost-position (result)
                (etypecase result
-                 (inactive-rule
+                 ((or inactive-rule condition string)
                   0)
                  (failed-parse
-                  (if-let ((detail/list (ensure-list (failed-parse-detail result)))) ; TODO local function
-                    (reduce #'max detail/list :key #'innermost-position)
-                    (failed-parse-position result)))))
+                  (reduce #'max (ensure-list (failed-parse-detail result))
+                          :key           #'innermost-position
+                          :initial-value (failed-parse-position result)))))
              #+old (innermost-position (derivation)
                (failed-parse-position   ; TODO what if NIL?
                 (find-if (of-type 'failed-parse) derivation :from-end t))))
@@ -966,8 +973,7 @@ in which the first two return values cannot indicate failures."
                (interesting (mapcar #'results* interesting))
                (the-rules   (remove-if (lambda (result)
                                          (or
-                                          (member (first (first (expressions (second result))))
-                                                  '(:skipable :comment :whitespace) :test #'string=)
+
                                           (find-if (lambda (other-result)
                                                      (some (lambda (path)
                                                              (find (first result) path :test #'eq))
