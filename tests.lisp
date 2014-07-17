@@ -359,19 +359,19 @@
   (macrolet
       ((signals-esrap-error ((input position &optional messages) &body body)
          (once-only (position)
-           `(progn
+           `(flet ((do-it () ,@body))
               (signals (esrap-error)
-                ,@body)
-              (handler-case (progn ,@body)
+                (do-it))
+              (handler-case (do-it)
                 (esrap-error (condition)
                   (is (string= (esrap-error-text condition) ,input))
                   (when ,position
                     (is (= (esrap-error-position condition) ,position)))
                   ,@(when messages
                       `((let ((report (princ-to-string condition)))
-                          ,@(mapcar (lambda (message)
-                                      `(is (search ,message report)))
-                                    (ensure-list messages)))))))))))
+                          (mapcar (lambda (message)
+                                    (is (search message report)))
+                                  (list ,@(ensure-list messages))))))))))))
     ;; Rule does not allow empty string.
     (signals-esrap-error ("" 0 ("Could not parse subexpression"
                                 "Encountered at"))
