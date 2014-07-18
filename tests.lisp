@@ -61,6 +61,16 @@
         (:function second)
         (:lambda (x) (declare (ignore x)))))))
 
+(test defrule.conditions
+  "Test signaling of errors for DEFRULE syntax errors."
+  (flet ((test-case (form)
+           (signals error (macroexpand form))))
+    (test-case '(defrule multiple-guards "foo"
+                  (:when foo)
+                  (:when bar)))
+    (test-case '(defrule multiple-expressions-in-when "foo"
+                  (:when foo bar)))))
+
 ;;; A few semantic predicates
 
 (defun not-doublequote (char)

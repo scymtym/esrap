@@ -828,25 +828,26 @@ Following OPTIONS can be specified:
                          ((not transform)
                           trans/bounds)
                          (use-start-end?
-                          (error "Trying to use ~{~S~^, ~} in composed ~S transformation."
+                          (error "~@<Trying to use ~{~S~^, ~} in composed ~
+                                  ~S transformation.~@:>"
                                  start-end-symbols use-start-end?))
                          (t
                           `(compose ,trans/no-bounds ,transform)))))
                (set-guard (expr test)
                  (if guard-seen
-                     (error "Multiple guards in DEFRULE:~% ~S" form)
+                     (error "~@<Multiple guards in ~S:~@:_~2@T~S~@:>"
+                            'defrule form)
                      (setf guard-seen t
                            guard expr
                            condition test))))
           (destructuring-ecase option
-            ((:when expr)
-             (when (cddr option)
-               (error "Multiple expressions in a :WHEN:~% ~S" form))
-             (if (constantp expr)
-                 (if (eval expr)
-                     (set-guard expr t)
-                     (set-guard expr nil))
-                 (set-guard expr `(lambda () ,expr))))
+            ((:when expr &rest rest)
+             (when rest
+               (error "~@<Multiple expressions in a ~S:~@:_~2@T~S~@:>"
+                      :when form))
+             (set-guard expr (cond
+                               ((not (constantp expr)) `(lambda () ,expr))
+                               ((eval expr) t))))
             ((:constant value)
              (set-transform `(constantly ,value) `(constantly ,value)))
             ((:text value)
