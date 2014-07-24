@@ -989,7 +989,7 @@ break is entered when the rule is invoked."
                            (break "rule ~S" symbol))
                          (let ((space (make-string *trace-level* :initial-element #\space))
                                (*trace-level* (+ 1 *trace-level*)))
-                           (format *trace-output* "~&~A~D: ~S ~S? ~%"
+                           (format *trace-output* "~&~A~D: ~S ~S?~%"
                                    space *trace-level* symbol position)
                            (finish-output *trace-output*)
                            (let ((result (funcall fun text position end)))
