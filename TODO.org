@@ -119,3 +119,4 @@ Esrap TODO
 ** DONE Tests for rule tracing functionality
 ** DONE Remove =concat=
 * Bugs
+** NEW Tracing does not work for interpreted rules

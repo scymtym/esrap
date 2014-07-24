@@ -64,6 +64,25 @@
       (lambda () ,@body) ,input
       ',condition ,position (list ,@(ensure-list messages)))))
 
+(defmacro test-both-modes (name &body body)
+  (multiple-value-bind (body declarations documentation)
+      (parse-body body :documentation t)
+    (declare (ignore declarations))
+    (let ((name/interpreted (symbolicate name '#:.interpreted))
+          (name/compiled    (symbolicate name '#:.compiled)))
+      `(progn
+         (test ,name/interpreted
+           ,@(when documentation `(,documentation))
+           (let ((esrap::*eval-nonterminals* t))
+             (#-sbcl progn #+sbcl locally
+               #+sbcl (declare (sb-ext:disable-package-locks esrap:parse))
+               (flet ((parse (&rest args)
+                        (apply #'parse args)))
+                 ,@body))))
+         (test ,name/compiled
+           ,@(when documentation `(,documentation))
+           ,@body)))))
+
 ;;; defrule tests
 
 (test defrule.check-expression
@@ -162,45 +181,40 @@
           (declare (ignore comma))
           (cons int list)))))
 
-(test smoke
-  (is (equal '(("1," "2," "" "3," "4.") nil t)
-             (multiple-value-list
-              (parse 'trimmed-lines "1,
-                                     2,
+(test-both-modes parse.smoke
+  (macrolet
+      ((test-case (expected rule text &rest args)
+         `(is (equal '(,@expected)
+                     (multiple-value-list (parse ,rule ,text ,@args))))))
 
-                                     3,
-                                     4."))))
-  (is (equal '(123 nil t)
-             (multiple-value-list (parse 'integer "  123"))))
-  (is (equal '(123 nil t)
-             (multiple-value-list (parse 'integer "  123  "))))
-  (is (equal '(123 nil t)
-             (multiple-value-list (parse 'integer "123  "))))
-  (is (equal '((123 45 6789 0) nil t)
-             (multiple-value-list
-              (parse 'list-of-integers "123, 45  ,   6789, 0"))))
-  (is (equal '((123 45 6789 0) nil t)
-             (multiple-value-list
-              (parse 'list-of-integers "  123 ,45,6789, 0  "))))
+    (test-case (("1," "2," "" "3," "4.") nil t)
+               'trimmed-lines "1,
+                               2,
 
-  ;; Ensure that parsing with :junk-allowed returns the correct
-  ;; position.
-  (is (equal '(nil 1)
-             (multiple-value-list (parse 'list-of-integers " a"
-                                         :start 1 :junk-allowed t))))
+                               3,
+                               4.")
+    (test-case (123 nil t) 'integer "  123")
+    (test-case (123 nil t) 'integer "  123  ")
+    (test-case (123 nil t) 'integer "123  ")
+    (test-case ((123 45 6789 0) nil t)
+               'list-of-integers "123, 45  ,   6789, 0")
+    (test-case ((123 45 6789 0) nil t)
+               'list-of-integers "  123 ,45,6789, 0  ")
 
-  ;; Test successful parse that does not consume input. This case can
-  ;; only be detected by examining the third return value.
-  (is (equal '(nil 1 t)
-             (multiple-value-list
-              (parse '(? list-of-integers) " a"
-                     :start 1 :junk-allowed t))))
+    ;; Ensure that parsing with :junk-allowed returns the correct
+    ;; position.
+    (test-case (nil 1) 'list-of-integers " a"
+               :start 1 :junk-allowed t)
 
-  ;; Handling of :raw (by the compiler-macro).
-  (is (equal '(123 nil t)
-             (multiple-value-list (parse 'integer "123" :raw nil))))
-  (is (typep (parse 'integer "123" :raw t) 'esrap::successful-parse))
-  (is (typep (parse 'integer "12a" :raw t) 'esrap::error-result)))
+    ;; Test successful parse that does not consume input. This case
+    ;; can only be detected by examining the third return value.
+    (test-case (nil 1 t) '(? list-of-integers) " a"
+               :start 1 :junk-allowed t)
+
+    ;; Handling of :raw (by the compiler-macro).
+    (test-case (123 nil t) 'integer "123" :raw nil)
+    (is (typep (parse 'integer "123" :raw t) 'esrap::successful-parse))
+    (is (typep (parse 'integer "12a" :raw t) 'esrap::error-result))))
 
 (defrule single-token/bounds.1 (+ (not-space character))
   (:lambda (result &bounds start end)
@@ -232,13 +246,13 @@
           (declare (ignore whitespace))
           (cons token list)))))
 
-(test bounds.1
+(test-both-modes bounds.1
   (is (equal '("foo[0-3]")
              (parse 'tokens/bounds.1 "foo")))
   (is (equal '("foo[0-3]" "bar[4-7]" "quux[11-15]")
              (parse 'tokens/bounds.1 "foo bar    quux"))))
 
-(test bounds.2
+(test-both-modes bounds.2
   (is (equal '("foo(0-3)")
              (parse 'tokens/bounds.2 "foo")))
   (is (equal '("foo(0-3)" "bar(4-7)" "quux(11-15)")
@@ -251,7 +265,7 @@
 
 (defrule function-terminals.integer #'parse-integer1)
 
-(test function-terminals.parse-integer
+(test-both-modes function-terminals.parse-integer
   "Test using the function PARSE-INTEGER1 as a terminal."
   (macrolet ((test-case (input expected
                          &optional
@@ -280,7 +294,7 @@
 
 (defrule function-terminals.parse-5-as #'parse-5-as)
 
-(test function-terminals.parse-5-as.smoke
+(test-both-modes function-terminals.parse-5-as.smoke
   "Test using PARSE-A as a terminal."
   (macrolet ((test-case (input expected
                          &optional (expression ''function-terminals.parse-5-as))
@@ -290,7 +304,7 @@
     (test-case "aaaaab" '((#\a #\a #\a #\a #\a) "b")
                '(and (? function-terminals.parse-5-as) #\b))))
 
-(test function-terminals.parse-5-as.condition
+(test-both-modes function-terminals.parse-5-as.condition
   "Test using PARSE-A as a terminal."
   (handler-case
       (parse 'function-terminals.parse-5-as "aaaab")
@@ -307,11 +321,11 @@
         (and #\b #'function-terminals.nested-parse)
         #\c))
 
-(test function-terminals.nested-parse
+(test-both-modes function-terminals.nested-parse
   "Test a function terminal which itself calls PARSE."
   (parse 'function-terminals.nested-parse "bddca"))
 
-(test function-terminals.nested-parse.condition
+(test-both-modes function-terminals.nested-parse.condition
   "Test propagation of failure information through function terminals."
   (signals esrap-parse-error (parse 'function-terminals.nested-parse "bddxa")))
 
@@ -321,7 +335,7 @@
       (values :ok position t)
       (values nil position "\"a\" expected")))
 
-(test function-terminals.without-consuming
+(test-both-modes function-terminals.without-consuming
   "Test that function terminals can succeed without consuming input."
   (is (equal '((:ok "a") nil t)
              (multiple-value-list
@@ -346,14 +360,14 @@
 (defrule left-recursion.direct
     (or (and left-recursion.direct #\l) #\r))
 
-(test left-recursion.direct.success
+(test-both-modes left-recursion.direct.success
   "Test parsing with one left recursive rule for different inputs."
   (dotimes (i 20)
     (multiple-value-bind (input expected)
         (make-input-and-expected-result i)
       (is (equal expected (parse 'left-recursion.direct input))))))
 
-(test left-recursion.direct.condition
+(test-both-modes left-recursion.direct.condition
   "Test signaling of `left-recursion' condition if requested."
   (let ((*on-left-recursion* :error))
     (signals (left-recursion)
@@ -372,7 +386,7 @@
 
 (defrule left-recursion.indirect.2 (or (and left-recursion.indirect.1 "l") "r"))
 
-(test left-recursion.indirect.success
+(test-both-modes left-recursion.indirect.success
   "Test parsing with mutually left recursive rules for different
    inputs."
   (dotimes (i 20)
@@ -381,7 +395,7 @@
       (is (equal expected (parse 'left-recursion.indirect.1 input)))
       (is (equal expected (parse 'left-recursion.indirect.2 input))))))
 
-(test left-recursion.indirect.condition
+(test-both-modes left-recursion.indirect.condition
   "Test signaling of `left-recursion' condition if requested."
   (let ((*on-left-recursion* :error))
     (signals (left-recursion)
@@ -412,7 +426,7 @@
 (defrule condition.never-active "foo"
   (:when nil))
 
-(test condition.maybe-active
+(test-both-modes condition.maybe-active
   "Rule not active at toplevel."
   (flet ((do-it () (parse 'condition.maybe-active "foo"))) ; TODO avoid redundancy
     (signals esrap-parse-error (do-it))
@@ -436,7 +450,7 @@
 (defrule condition.undefined-dependency
     (and "foo" no-such-rule))
 
-(test condition.undefined-rules
+(test-both-modes condition.undefined-rules
   "Test handling of undefined rules."
   (signals undefined-rule-error
     (parse 'no-such-rule "foo"))
@@ -457,7 +471,7 @@
       (compile nil '(lambda ()
                       (parse 'integer "1" :junk-allowed t :raw t))))))
 
-(test condition.misc
+(test-both-modes condition.misc
   "Test signaling of `esrap-parse-error' conditions for failed
    parses."
   ;; Rule does not allow empty string.
@@ -528,7 +542,7 @@
                                 "a string that can be parsed by the function"))
     (parse 'function-terminals.integer "(1 2")))
 
-(test parse.string
+(test-both-modes parse.string
   "Test parsing an arbitrary string of a given length."
   (is (equal "" (parse '(string 0) "")))
   (is (equal "aa" (parse '(string 2) "aa")))
@@ -536,7 +550,7 @@
   (signals esrap-parse-error (parse '(string 2) "a"))
   (signals esrap-parse-error (parse '(string 2) "aaa")))
 
-(test parse.case-insensitive
+(test-both-modes parse.case-insensitive
   "Test parsing an arbitrary string of a given length."
   (dolist (input '("aabb" "AABB" "aAbB" "aaBB" "AAbb"))
     (unless (every #'lower-case-p input)
@@ -545,7 +559,7 @@
     (is (equal "AABB" (text (parse '(* (or (~ #\A) (~ #\B))) input))))
     (is (equal "aaBB" (text (parse '(* (or (~ #\a) (~ #\B))) input))))))
 
-(test parse.negation
+(test-both-modes parse.negation
   "Test negation in rules."
   (let* ((text "FooBazBar")
          (t1c (text (parse '(+ (not "Baz")) text :junk-allowed t)))
@@ -596,7 +610,7 @@
                (list (cons 0 (cons start end))))))
       (call-transform))))
 
-(test around.1
+(test-both-modes around.1
   "Test executing code around the transform of a rule."
   (macrolet ((test-case (input expected)
                `(is (equal ,expected (parse 'around.1 ,input)))))
@@ -604,7 +618,7 @@
     (test-case "{bar}"   '((1 0) . "bar"))
     (test-case "{{baz}}" '((2 1 0) . "baz"))))
 
-(test around.2
+(test-both-modes around.2
   "Test executing code around the transform of a rule."
   (macrolet ((test-case (input expected)
                `(is (equal ,expected (parse 'around.2 ,input)))))
@@ -622,7 +636,7 @@
 
 (defrule character-range (character-ranges (#\a #\b) #\-))
 
-(test character-range
+(test-both-modes character-range
   (is (equal '(#\a #\b) (parse '(* (character-ranges (#\a #\z) #\-)) "ab" :junk-allowed t)))
   (is (equal '(#\a #\b) (parse '(* (character-ranges (#\a #\z) #\-)) "ab1" :junk-allowed t)))
   (is (equal '(#\a #\b #\-) (parse '(* (character-ranges (#\a #\z) #\-)) "ab-" :junk-allowed t)))
@@ -638,11 +652,11 @@
   (:text t)
   (:function parse-integer))
 
-(test multiple-transforms.1
+(test-both-modes multiple-transforms.1
   "Apply composed transforms to parse result."
   (is (eql 1 (parse 'multiple-transforms.1 "a1c"))))
 
-(test multiple-transforms.invalid
+(test-both-modes multiple-transforms.invalid
   "Test DEFRULE's behavior for invalid transforms."
   (dolist (form '((defrule multiple-transforms.2 #\1
                     (:text t)
@@ -781,7 +795,7 @@
 
 ;;; Test tracing
 
-(test trace-rule.smoke
+(test #+TODO -both-modes trace-rule.smoke
   "Smoke test for the rule (un)tracing functionality."
   (labels
       ((parse-with-trace (rule text)
@@ -876,7 +890,7 @@
 
 ;;; Test README examples
 
-(test examples-from-readme.foo
+(test-both-modes examples-from-readme.foo
   "README examples related to \"foo+\" rule."
   (is (equal '("foo" nil t)
              (multiple-value-list (parse '(or "foo" "bar") "foo"))))
@@ -885,7 +899,7 @@
   (is (equal '(("foo" "foo" "foo") nil t)
              (multiple-value-list (parse 'foo+ "foofoofoo")))))
 
-(test examples-from-readme.decimal
+(test-both-modes examples-from-readme.decimal
   "README examples related to \"decimal\" rule."
   (is (eq 'decimal
           (add-rule
@@ -902,14 +916,14 @@
 
 ;;; Examples in separate files
 
-(test example-left-recursion.left-associative
+(test-both-modes example-left-recursion.left-associative
   "Left associate grammar from example-left-recursion.lisp."
   ;; This grammar should work without left recursion.
   (let ((*on-left-recursion* :error))
     (is (equal '(+ (* 1 2) (+ (* 3 4) 5))
                (parse 'left-recursive-grammars:la-expr "1*2+3*4+5")))))
 
-(test example-left-recursion.right-associative
+(test-both-modes example-left-recursion.right-associative
   "Right associate grammar from example-left-recursion.lisp."
   ;; This grammar combination of grammar and input would require left
   ;; recursion.
@@ -920,7 +934,7 @@
   (is (equal '(+ (+ (* 1 2) (* 3 4)) 5)
              (parse 'left-recursive-grammars:ra-expr "1*2+3*4+5"))))
 
-(test example-left-recursion.warth.smoke
+(test-both-modes example-left-recursion.warth.smoke
   "Warth's Java expression example from example-left-recursion.lisp."
  (mapc
   (curry #'apply
@@ -933,7 +947,7 @@
     ("this.x.m()" (:method-invocation (:field-access "this" "x") "m"))
     ("x[i][j].y"  (:field-access (:array-access (:array-access "x" "i") "j") "y")))))
 
-(test example-function-terminals.indented-block.smoke
+(test-both-modes example-function-terminals.indented-block.smoke
   "Context-sensitive parsing via function terminals."
   (is (equal '("foo" "bar" "quux"
                (if "foo"
@@ -956,7 +970,7 @@
    blu
 "))))
 
-(test example-function-terminals.indented-block.condition
+(test-both-modes example-function-terminals.indented-block.condition
   "Context-sensitive parsing via function terminals."
   (let ((input "if foo:
 bla
@@ -969,7 +983,7 @@ bla
                                  "a string that can be parsed by the function"))
       (parse 'esrap-example.function-terminals:indented-block input))))
 
-(test example-function-terminals.read.smoke
+(test-both-modes example-function-terminals.read.smoke
   "Using CL:READ as a terminal."
   (macrolet ((test-case (input expected)
                `(is (equal ,expected
@@ -980,7 +994,7 @@ bla
     (test-case "foo" 'cl-user::foo)
     (test-case "#C(1 3/4)" #C(1 3/4))))
 
-(test example-function-terminals.read.condition
+(test-both-modes example-function-terminals.read.condition
   "Test error reporting in the CL:READ-based rule"
   (handler-case
       (with-standard-io-syntax
