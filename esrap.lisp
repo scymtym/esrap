@@ -1,7 +1,7 @@
 ;;;; ESRAP -- a packrat parser for Common Lisp
 ;;;;
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2014 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2015 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Homepage and documentation:
 ;;;;
@@ -72,6 +72,8 @@
    #:text
    #:trace-rule
    #:untrace-rule
+   #:undefined-rule-error
+   #:undefined-rule-symbol
    ))
 
 (in-package :esrap)
@@ -180,6 +182,23 @@ to :ERROR."))
          :position position
          :nonterminal nonterminal
          :path (append path-butlast (list nonterminal))))
+
+(define-condition undefined-rule (condition)
+  ((symbol :initarg :symbol
+           :type symbol
+           :reader undefined-rule-symbol)))
+
+(defmethod print-object ((condition undefined-rule) stream)
+  (format stream "~@<The rule ~S is undefined.~@:>"
+          (undefined-rule-symbol condition)))
+
+(define-condition undefined-rule-error (undefined-rule error)
+  ()
+  (:documentation
+   "Signaled when an undefined rule is encountered."))
+
+(defun undefined-rule (symbol)
+  (error 'undefined-rule-error :symbol symbol))
 
 ;;; Miscellany
 
@@ -351,7 +370,7 @@ constructors."))
 (defun undefined-rule-function (symbol)
   (lambda (&rest args)
     (declare (ignore args))
-    (error "Undefined rule: ~S" symbol)))
+    (undefined-rule symbol)))
 
 (defun ensure-rule-cell (symbol)
   (check-type symbol nonterminal)
@@ -1028,7 +1047,7 @@ break is entered when the rule is invoked."
                      (trace-one dep (find-rule-cell dep)))))
                t))
       (trace-one symbol (or (find-rule-cell symbol)
-                            (error "Undefined rule: ~S" symbol))))))
+                            (undefined-rule symbol))))))
 
 (defun untrace-rule (symbol &key recursive break)
   "Turn off tracing of nonterminal SYMBOL. If RECURSIVE is true, untraces the
@@ -1056,7 +1075,7 @@ symmetry with TRACE-RULE."
                      (untrace-one (find-rule-cell dep)))))
                nil))
       (untrace-one (or (find-rule-cell symbol)
-                       (error "Undefined rule: ~S" symbol))))))
+                       (undefined-rule symbol))))))
 
 (defun rule-expression (rule)
   "Return the parsing expression associated with the RULE."
@@ -1077,7 +1096,7 @@ detached beforehand."
 removes the rule while it is being modified."
   (let ((rule (remove-rule symbol :force t)))
     (unless rule
-      (error "~S is not a defined rule." symbol))
+      (undefined-rule symbol))
     (setf (rule-expression rule) expression)
     (add-rule symbol rule)))
 

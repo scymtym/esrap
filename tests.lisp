@@ -393,9 +393,15 @@
         (search "Rule CONDITION.NEVER-ACTIVE not active"
                 (princ-to-string condition))))))
 
+(defrule condition.undefined-dependency
+    (and "foo" no-such-rule))
+
 (test condition.undefined-rules
   "Test handling of undefined rules."
-  (signals error (parse 'condition.no-such-rule "foo")))
+  (signals undefined-rule-error
+    (parse 'no-such-rule "foo"))
+  (signals undefined-rule-error
+    (parse 'condition.undefined-dependency "foo")))
 
 (test condition.misc
   "Test signaling of `esrap-simple-parse-error' conditions for failed
