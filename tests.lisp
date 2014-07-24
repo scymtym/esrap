@@ -653,6 +653,43 @@
 (test describe-terminal.condition
   (signals error (describe-terminal '(and #\a #\b))))
 
+(defrule describe-grammar.undefined-dependency
+    describe-grammar.no-such-rule.1)
+
+(test describe-grammar.smoke
+  "Smoke test for DESCRIBE-GRAMMAR."
+  (mapc
+   (lambda (spec)
+     (destructuring-bind (rule &rest expected) spec
+       (let ((output (with-output-to-string (stream)
+                       (describe-grammar rule stream))))
+         (mapc (lambda (expected)
+                 (is (search expected output)))
+               (ensure-list expected)))))
+
+   '((condition.maybe-active
+      "Grammar CONDITION.MAYBE-ACTIVE"
+      "MAYBE-ACTIVE" "<-" "\"foo\" : *ACTIVE*")
+     (describe-grammar.undefined-dependency
+      "Grammar DESCRIBE-GRAMMAR.UNDEFINED-DEPENDENCY"
+      "Undefined nonterminal" "DESCRIBE-GRAMMAR.NO-SUCH-RULE.1")
+     (describe-grammar.no-such-rule.1
+      "Symbol DESCRIBE-GRAMMAR.NO-SUCH-RULE.1 is not a defined nonterminal.")
+     (describe-grammar.no-such-rule.2
+      "Symbol DESCRIBE-GRAMMAR.NO-SUCH-RULE.2 is not a defined nonterminal.")
+     (around.1
+      "Grammar AROUND.1"
+      "AROUND.1" "<-" ": T" "AROUND/INNER" "<-" ": T")
+     (around.2
+      "Grammar AROUND.2"
+      "AROUND.2" "<-" ": T" "AROUND/INNER" "<-" ": T")
+     (character-range
+      "Grammar CHARACTER-RANGE"
+      "CHARACTER-RANGE" "<-" "(CHARACTER-RANGES (#\\a" ": T")
+     (multiple-transforms.1
+      "Grammar MULTIPLE-TRANSFORMS.1"
+      "MULTIPLE-TRANSFORMS.1" "<-" "(AND #\\a #\\1" ": T"))))
+
 ;;; Test tracing
 
 (test trace-rule.smoke
