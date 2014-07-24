@@ -2098,9 +2098,54 @@ inspection."
 
 (defparameter *eval-nonterminals* nil)
 
+(defun exec-nonterminal (symbol text position end)
+  (let* ((rule (or (find-rule symbol)
+                   (undefined-rule symbol)))
+         (expression (rule-expression rule))
+         (condition (rule-condition rule))
+         (around (rule-around rule))
+         (transform (rule-transform rule)))
+    (with-cached-result (symbol position text)
+      (labels ((call-transform (result)
+                 (declare (type function transform))
+                 (funcall transform
+                          (successful-parse-production result)
+                          position
+                          (result-position result)))
+               (exec-rule/transform (result)
+                 (cond
+                   ((error-result-p result)
+                    (make-failed-parse/no-position symbol result))
+                   (around
+                    (locally (declare (type function around))
+                      (make-successful-parse
+                       symbol (result-position result)
+                       result (funcall around position (result-position result)
+                                       (curry #'call-transform result)))))
+                   (t
+                    (make-successful-parse
+                     symbol (result-position result)
+                     result (call-transform result)))))
+               (exec-expression ()
+                 (let ((result (eval-expression expression text position end)))
+                   (if transform
+                       (exec-rule/transform result)
+                       result)))
+               (process-condition ()
+                 (cond
+                   ((not condition)
+                    (make-inactive-rule symbol 0))
+                   ((or (eq t condition) (funcall (the function condition)))
+                    (exec-expression))
+                   (t
+                    (make-inactive-rule symbol 0)))))
+        (declare (dynamic-extent #'exec-rule/transform
+                                 #'exec-expression #'process-condition))
+        (process-condition)))))
+
 (defun eval-nonterminal (symbol text position end)
   (if *eval-nonterminals*
-      (eval-expression (rule-expression (find-rule symbol)) text position end)
+      (exec-nonterminal symbol text position end)
       (funcall (cell-function (ensure-rule-cell symbol)) text position end)))
 
 (defun compile-nonterminal (symbol)
