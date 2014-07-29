@@ -607,7 +607,7 @@ symbols."
       ;; recursion.
       ((and (not result) (not (or (eq rule (head-rule head))
                              (member rule (head-involved-set head)))))
-       (make-failed-parse :%position position))
+       (make-failed-parse position position nil))
       ;; Allow involved rules to be evaluated, but only once, during a
       ;; seed-growing iteration. Subsequent requests just return what
       ;; is stored in the cache.
@@ -636,7 +636,7 @@ symbols."
            ((left-recursion-result-p ,result)
             ;; If error on left-recursion has been requested, do that.
             (when (eq *on-left-recursion* :error)
-              (left-recursion ,text,position ,symbol
+              (left-recursion ,text ,position ,symbol
                               (reverse (mapcar #'left-recursion-result-rule
                                                *nonterminal-stack*))))
             ;; Otherwise, mark left recursion and fail this partial
@@ -652,8 +652,7 @@ symbols."
                 (setf (left-recursion-result-head item) head)
                 (pushnew (left-recursion-result-rule item)
                          (head-involved-set head))))
-            (make-failed-parse :expression ,symbol
-                               :%position ,position))
+            (make-failed-parse ,symbol ,position nil))
            ;; Cache hit without left-recursion.
            (,result
             ,result)
@@ -662,7 +661,7 @@ symbols."
             ;; First add a left recursion marker for this pair, then
             ;; compute the result, potentially recovering from left
             ;; recursion and cache that.
-            (let* ((result (make-left-recursion-result :rule ,symbol))
+            (let* ((result (make-left-recursion-result ,symbol))
                    (result1
                      (let ((*nonterminal-stack* (cons result *nonterminal-stack*)))
                        (setf (get-cached ,symbol ,position ,cache)
@@ -686,8 +685,9 @@ symbols."
                                     (result-position result1))) ; no progress
                         (return))
                       (setf (get-cached ,symbol ,position ,cache)
-                            (%make-result :position (result-position result2)
-                                          :%production (result-%production result2))
+                            (%make-successful-parse
+                             ,symbol (result-position result2)
+                             result2 #'successful-parse-production)
                             result1 result2)))
                   (setf (get-head ,position ,heads) nil)))
               result1)))))))
@@ -701,80 +701,119 @@ symbols."
 ;;; used to perform semantic actions only when necessary -- either
 ;;; when we call a semantic predicate or once parse has finished.
 
-(defstruct (error-result (:copier nil)))
-
-(defstruct (inactive-rule (:include error-result) (:copier nil))
-  ;; Name of the rule that was inactive.
-  (rule (required-argument :rule) :type symbol :read-only t))
-
-(defstruct (failed-parse (:include error-result) (:copier nil))
-  ;; Expression that failed to match.
-  (expression nil :read-only t) ; TODO required?
+(defstruct (result (:constructor nil) (:copier nil))
+  ;; Expression that succeeded/failed to match.
+  (expression nil                                                                :read-only t)
   ;; Position at which match was attempted.
   ;; Either
   ;; * the position at which the parse failed
   ;; * or function returning that position when called with the
   ;;   FAILED-PARSE instance and optionally a minimum position as its
   ;;   arguments.
-  (%position (required-argument) :type (or function array-index))
+  (%position  #'max-of-result-positions  :type (or function array-index))
   ;; One of the following things:
   ;; * nested error, closer to actual failure site
   ;; * a (possibly empty) list thereof
   ;; * a string describing the failure
   ;; * a condition instance describing the failure
-  (detail nil :type (or  error-result list string condition) :read-only t))
+  (detail     nil                        :type (or result list string condition) :read-only t))
 
-;; The following two functions are only called from slow paths.
-(declaim (ftype (function (failed-parse) (values non-negative-integer &optional))
-                failed-parse-position))
-(defun failed-parse-position (result)
-  (let ((position (failed-parse-%position result)))
+;; The following function is only called from slow paths.
+(declaim (ftype (function (result) (values non-negative-integer &optional))
+                result-position))
+(defun result-position (result)
+  (let ((position (result-%position result)))
     (if (functionp position)
-        (setf (failed-parse-%position result)
-              (funcall position (ensure-list (failed-parse-detail result))))
+        (setf (result-%position result)
+              (funcall position (ensure-list (result-detail result))))
         position)))
 
-(declaim (ftype (function (list &optional non-negative-integer)
-                          (values non-negative-integer &optional))
-                max-of-failed-parse-positions))
-(defun max-of-failed-parse-positions (results &optional (start 0))
-  (reduce #'max results
-          :key (lambda (result)
-                 (if (failed-parse-p result)
-                     (failed-parse-position result)
-                     0))
-          :initial-value start))
+(defmethod print-object ((object result) stream)
+  (print-unreadable-object (object stream :type t)
+    (let ((*print-level* (min 2 (or *print-level* 2)))
+          (*print-length* (min 3 (or *print-length* 3))))
+      (format stream "~S~@[ @~D~]"
+              (result-expression object) (result-position object)))))
+
+(defstruct (error-result (:include result) (:constructor nil) (:copier nil)))
+
+(defstruct (inactive-rule (:include error-result)
+                          (:constructor make-inactive-rule
+                                        (expression %position))
+                          (:copier nil)))
+
+(declaim (ftype (function (inactive-rule) (values nonterminal &optional))
+                inactive-rule-rule))
+(defun inactive-rule-rule (result)
+  (result-expression result))
+
+(defstruct (failed-parse
+             (:include error-result)
+             (:constructor make-failed-parse (expression %position detail))
+             (:constructor make-failed-parse/no-position (expression detail))
+             (:copier nil)))
 
 ;; This is placed in the cache as a place in which information
 ;; regarding left recursion can be stored temporarily.
-(defstruct (left-recursion-result (:include error-result) (:copier nil))
-  (rule (required-argument :rule) :type symbol :read-only t)
+(defstruct (left-recursion-result
+             (:include error-result)
+             (:constructor make-left-recursion-result (expression))
+             (:copier nil))
   (head nil :type (or null head)))
 
-(defstruct (result (:constructor %make-result) (:copier nil))
-  ;; Either a list of results, whose first element is the production, or a
-  ;; function to call that will return the production.
-  (%production nil :type (or list function))
-  ;; Position after the match.
-  (position (required-argument :position) :type array-index :read-only t))
+(declaim (ftype (function (left-recursion-result) (values nonterminal &optional))
+                left-recursion-result-rule))
+(defun left-recursion-result-rule (result)
+  (result-expression result))
 
-(defmacro make-result (&rest arguments &key production &allow-other-keys)
-  (if production
-      (let ((args (copy-list arguments)))
-        (remf args :production)
-        `(%make-result ,@args
-                       :%production ,(if (symbolp production)
-                                         `(list ,production)
-                                         `(lambda () ,production))))
-      `(%make-result ,@arguments)))
+(defstruct (successful-parse
+             (:include result)
+             (:constructor %make-successful-parse
+                           (expression %position detail %production))
+             (:copier nil))
+  ;; Either a list of results, whose first element is the production,
+  ;; or a function to call that will return the production.
+  (%production nil :type (or list function)))
 
-(defun result-production (result)
-  (let ((thunk (result-%production result)))
+(defun successful-parse-production (result)
+  (let ((thunk (successful-parse-%production result)))
     (if (functionp thunk)
-        (let ((value (funcall thunk)))
-          (setf (result-%production result) (list value))
+        (let ((value (funcall thunk (result-detail result))))
+          (setf (successful-parse-%production result) (list value))
           value)
-        (car thunk))))
+        (first thunk))))
+
+;; Result helper functions
+
+(defmacro make-successful-parse (expression position detail production)
+  `(%make-successful-parse
+    ,expression ,position ,detail
+    ,(typecase production
+       (symbol
+        `(list ,production))
+       ((cons (eql function))
+        production)
+       (t
+        `(lambda (detail)
+           (declare (ignore detail))
+           ,production)))))
+
+(declaim (ftype (function (list &optional non-negative-integer)
+                          (values non-negative-integer &optional))
+                max-of-result-positions))
+(defun max-of-result-positions (results &optional (start 0))
+  (reduce #'max results :key #'result-position :initial-value start))
+
+(declaim (ftype (function (list) (values list &optional))
+                list-of-result-productions
+                list-of-result-productions/butlast))
+
+(defun list-of-result-productions (results)
+  (mapcar #'successful-parse-production results))
+
+(defun list-of-result-productions/butlast (results)
+  (loop :for rest :on results :while (rest rest)
+     :collect (successful-parse-production (first rest))))
 
 ;;; MAIN INTERFACE
 
@@ -863,10 +902,10 @@ happen when :raw t."
 (defun process-parse-result (result text start end junk-allowed)
   (cond
     ;; Successfully parsed something.
-    ((not (error-result-p result))
+    ((successful-parse-p result)
      (let ((position (result-position result)))
        (values
-        (result-production result)
+        (successful-parse-production result)
         (cond
           ((= position end) nil) ; Consumed all input.
           (junk-allowed position) ; Did not consume all input; junk is OK.
@@ -879,24 +918,26 @@ happen when :raw t."
     ((failed-parse-p result)
      (labels ((expressions (e)
                 (etypecase e
-                  (null
+                  ((or null successful-parse)
                    '())
                   (inactive-rule
                    (list (list (inactive-rule-rule e) "(not active)")))
-                  ((cons failed-parse)
-                   (expressions (extremum e #'max :key #'failed-parse-position)))
+                  ((cons result)
+                   (let ((failures (remove-if-not #'error-result-p e)))
+                     (expressions (extremum failures #'max
+                                            :key #'result-position))))
                   (failed-parse
                    ;; The detail slot may contain nil, a condition or
                    ;; string, or a nested parse error result.
-                   (let ((expression (failed-parse-expression e))
-                         (detail (failed-parse-detail e)))
+                   (let ((expression (result-expression e))
+                         (detail (result-detail e)))
                      (if (typep detail '(or string condition))
                          (list (list expression
                                      (format nil "~%~6@T(~A)" detail)))
                          (cons (list expression)
                                (expressions detail))))))))
        (let ((expressions (expressions result)))
-         (simple-esrap-error text (failed-parse-position result)
+         (simple-esrap-error text (result-position result)
                              "Could not parse subexpression ~S when ~
                               parsing~2&~< Expression ~{~S~^ ~A~}~@{~&    ~
                               Subexpression ~{~S~^ ~A~}~}~:>"
@@ -1166,7 +1207,7 @@ rule.
                      (format *trace-output* "-|~%")
                      (format *trace-output* "~S-~S -> ~S~%"
                              position (result-position result)
-                             (result-production result)))
+                             (successful-parse-production result)))
                  (finish-output *trace-output*)
                  result))
              (traced/condition (condition symbol break fun text position end)
@@ -1299,7 +1340,10 @@ inspection."
   (let* ((*current-rule* symbol)
          ;; Must bind *CURRENT-RULE* before compiling the expression!
          (function (compile-expression expression))
-         (rule-not-active (make-inactive-rule :rule symbol)))
+         ;; We use a single static INACTIVE-RULE instance to represent
+         ;; (error) results produced by inactive rules. The actual
+         ;; error position has to be added in a post-processing step.
+         (rule-not-active (make-inactive-rule symbol 0)))
     (cond ((not condition)
            (named-lambda inactive-rule (text position end)
              (declare (ignore text position end))
@@ -1309,26 +1353,23 @@ inspection."
              (flet ((exec-rule/transform (text position end)
                       (let ((result (funcall function text position end)))
                         (if (error-result-p result)
-                            (make-failed-parse
-                             :expression symbol
-                             :%position #'max-of-failed-parse-positions
-                             :detail result)
+                            (make-failed-parse/no-position symbol result)
                             (if around
                                 (locally (declare (type function around))
-                                  (make-result
-                                   :position (result-position result)
-                                   :production (flet ((call-rule ()
-                                                        (funcall transform
-                                                                 (result-production result)
-                                                                 position
-                                                                 (result-position result))))
-                                                 (funcall around position (result-position result) #'call-rule))))
-                                (make-result
-                                 :position (result-position result)
-                                 :production (funcall transform
-                                                      (result-production result)
-                                                      position
-                                                      (result-position result))))))))
+                                  (make-successful-parse
+                                   symbol (result-position result)
+                                   result (flet ((call-rule ()
+                                                   (funcall transform
+                                                            (successful-parse-production result)
+                                                            position
+                                                            (result-position result))))
+                                            (funcall around position (result-position result) #'call-rule))))
+                                (make-successful-parse
+                                 symbol (result-position result)
+                                 result (funcall transform
+                                                 (successful-parse-production result)
+                                                 position
+                                                 (result-position result))))))))
                (if (eq t condition)
                    (named-lambda rule/transform (text position end)
                      (with-cached-result (symbol position text)
@@ -1621,16 +1662,13 @@ inspection."
 ;;; Characters and strings
 
 (declaim (ftype (function (string array-index array-index)
-                          (values (or failed-parse result) &optional))
+                          (values result &optional))
                 eval-character))
 (defun eval-character (text position end)
   (if (< position end)
-      (make-result
-       :production (char text position)
-       :position (1+ position))
-      (make-failed-parse
-       :expression 'character
-       :%position end)))
+      (%make-successful-parse
+       'character (1+ position) nil (list (char text position)))
+      (make-failed-parse 'character end nil)))
 
 (defun compile-character ()
   #'eval-character)
@@ -1639,15 +1677,12 @@ inspection."
 (defun exec-string (expression length text position end)
   (let ((limit (+ length position)))
     (if (<= limit end)
-        (make-result
-         :production (subseq text position limit)
-         :position limit)
-        (make-failed-parse
-         :expression expression
-         :%position end))))
+        (make-successful-parse
+         expression limit nil (subseq text position limit))
+        (make-failed-parse expression end nil))))
 
 (declaim (ftype (function (* string array-index array-index)
-                          (values (or failed-parse result) &optional))
+                          (values result &optional))
                 eval-string))
 (defun eval-string (expression text position end)
   (with-expression (expression (string length))
@@ -1672,16 +1707,13 @@ inspection."
            (string-equal string text :start2 position :end2 (+ position length)))))
 
 (declaim (ftype (function (string array-index string array-index array-index boolean)
-                          (values (or failed-parse result) &optional))
+                          (values result &optional))
                 exec-terminal))
 (defun exec-terminal (string length text position end case-sensitive-p)
   (if (match-terminal-p string length text position end case-sensitive-p)
-      (make-result
-       :position (the array-index (+ length position))
-       :production string)
-      (make-failed-parse
-       :expression string
-       :%position position)))
+      (make-successful-parse
+       string (the array-index (+ length position)) nil string)
+      (make-failed-parse string position nil)))
 
 (defun eval-terminal (string text position end case-sensitive-p)
   (exec-terminal string (length string) text position end case-sensitive-p))
@@ -1692,7 +1724,7 @@ inspection."
       (exec-terminal string length text position end case-sensitive-p))))
 
 (declaim (ftype (function (* function string array-index array-index)
-                          (values (or error-result result) &optional))
+                          (values result &optional))
                 exec-terminal-function))
 (defun exec-terminal-function (expression function text position end)
   ;; The protocol is as follows:
@@ -1701,7 +1733,7 @@ inspection."
   ;; 1) returns three values and RESULT is T
   ;; 2) returns two values and END-POSITION is NIL
   ;; 3) returns two values and (> END-POSITION POSITION)
-  ;; 4) returns one value of type RESULT
+  ;; 4) returns one value of type SUCCESSFUL-PARSE
   ;;
   ;; FUNCTION failed if one of
   ;; 1) returns at least two values and (= END-POSITION POSITION)
@@ -1719,18 +1751,15 @@ inspection."
     (declare (type (or null array-index) end-position)
              (type (or null string condition (eql t)) result))
     (cond
-      ((or (result-p production) (error-result-p production))
+      ((result-p production)
        production)
       ((or (eq result t)
            (and (null result)
                 (or (null end-position)
                     (> end-position position))))
-       (make-result :position (or end-position end)
-                    :production production))
+       (make-successful-parse expression (or end-position end) nil production))
       (t
-       (make-failed-parse :expression expression
-                          :%position (or end-position position)
-                          :detail result)))))
+       (make-failed-parse expression (or end-position position) result)))))
 
 (defun eval-terminal-function (expression text position end)
   (with-expression (expression (function function))
@@ -1765,17 +1794,15 @@ inspection."
 
 (defun eval-sequence (expression text position end)
   (with-expression (expression (and &rest subexprs))
-    (let (results)
+    (let ((results '()))
       (dolist (expr subexprs
-               (make-result
-                :position position
-                :production (mapcar #'result-production (nreverse results))))
+               (make-successful-parse
+                expression position (nreverse results)
+                #'list-of-result-productions))
         (let ((result (eval-expression expr text position end)))
           (if (error-result-p result)
               (return (make-failed-parse
-                       :expression expression
-                       :%position position
-                       :detail result))
+                       expression position (nreverse (list* result results))))
               (setf position (result-position result)))
           (push result results))))))
 
@@ -1783,35 +1810,40 @@ inspection."
   (with-expression (expression (and &rest subexprs))
     (let ((functions (mapcar #'compile-expression subexprs)))
       (expression-lambda #:sequence (text position end)
-        (let (results)
+        (let ((results '()))
           (dolist (fun functions
-                   (make-result
-                    :position position
-                    :production (mapcar #'result-production (nreverse results))))
-            (declare (type function fun))
+                   (make-successful-parse
+                    expression position (nreverse results)
+                    #'list-of-result-productions))
             (let ((result (funcall fun text position end)))
               (if (error-result-p result)
                   (return (make-failed-parse
-                           :expression expression
-                           :%position position
-                           :detail result))
+                           expression position
+                           (nreverse (list* result results))))
                   (setf position (result-position result)))
               (push result results))))))))
 
 ;;; Ordered choises
 
+(declaim (inline make-ordered-choise-result))
+(defun make-ordered-choise-result (expression result errors)
+  (if errors
+      (make-successful-parse
+       expression (result-position result)
+       (nreverse (list* result errors))
+       (successful-parse-production result))
+      result))
+
 (defun eval-ordered-choise (expression text position end)
   (with-expression (expression (or &rest subexprs))
     (let ((errors '()))
       (dolist (expr subexprs
-               (make-failed-parse
-                :expression expression
-                :%position #'max-of-failed-parse-positions
-                :detail errors))
+               (make-failed-parse/no-position expression (nreverse errors)))
         (let ((result (eval-expression expr text position end)))
           (if (error-result-p result)
               (push result errors)
-              (return result)))))))
+              (return (make-ordered-choise-result
+                       expression result errors))))))))
 
 (defun check-ordered-choise-prefix (string previous-strings)
   ;; Check for "FOO" followed by "FOOBAR" -- the latter would never
@@ -1851,60 +1883,56 @@ inspection."
          ;; If every subexpression is a length 1 string, we can represent the whole
          ;; choise with a single string.
          (let ((choises (apply #'concatenate 'string canonized))
-               (strings (coerce canonized 'vector)))
+               (productions (map 'vector #'list canonized)))
            (declare (type string choises))
            (expression-lambda #:character-choise/characters (text position end)
              (if-let ((index (and (< position end)
                                   (position (char text position) choises))))
-               (make-result :position (+ 1 position)
-                            :production (aref strings index))
-               (make-failed-parse
-                :expression expression
-                :%position position)))))
+               (%make-successful-parse
+                expression (+ 1 position) nil (aref productions index))
+               (make-failed-parse expression position nil)))))
         (:strings
          ;; If every subexpression is a string, we can represent the whole choise
          ;; with a list of strings.
-         (expression-lambda #:character-choise/strings (text position end)
-           (dolist (choise canonized
-                    (make-failed-parse
-                     :expression expression
-                     :%position position))
-             (declare (type string choise))
-             (let ((len (length choise)))
-               (when (match-terminal-p choise len text position end t)
-                 (return
-                   (make-result :position (the array-index (+ len position))
-                                :production choise)))))))
+         (let ((choises (mapcar #'list canonized)))
+           (expression-lambda #:character-choise/strings (text position end)
+             (dolist (choise choises
+                      (make-failed-parse expression position nil))
+               (let* ((string (car choise))
+                      (len (length string)))
+                 (declare (type string string))
+                 (when (match-terminal-p string len text position end t)
+                   (return
+                     (%make-successful-parse
+                      expression (the array-index (+ len position))
+                      nil choise))))))))
         (:general
          ;; In the general case, compile subexpressions and call.
          (let ((functions (mapcar #'compile-expression subexprs)))
            (expression-lambda #:ordered-choise/general (text position end)
-             (let (errors '())
+             (let ((errors '()))
                (dolist (fun functions
-                        (make-failed-parse
-                         :expression expression
-                         :%position #'max-of-failed-parse-positions
-                         :detail errors))
+                        (make-failed-parse/no-position
+                         expression (nreverse errors)))
                  (declare (type function fun))
                  (let ((result (funcall fun text position end)))
                    (if (error-result-p result)
                        (push result errors)
-                       (return result))))))))))))
+                       (return (make-ordered-choise-result
+                                expression result errors)))))))))))))
 
 ;;; Negations
 
 (declaim (ftype (function (function * string array-index array-index)
-                          (values (or failed-parse result) &optional))
+                          (values result &optional))
                 exec-negation))
 (defun exec-negation (fun expr text position end)
-  (if (and (< position end)
-           (error-result-p (funcall fun text position end)))
-      (make-result
-       :position (1+ position)
-       :production (char text position))
-      (make-failed-parse
-       :expression expr
-       :%position position)))
+  (let ((result))
+    (if (and (< position end)
+             (error-result-p (setf result (funcall fun text position end))))
+        (%make-successful-parse
+         expr (1+ position) result (list (char text position)))
+        (make-failed-parse expr position result))))
 
 (defun eval-negation (expression text position end)
   (with-expression (expression (not subexpr))
@@ -1928,14 +1956,15 @@ inspection."
   (with-expression (expression (* subexpr))
     (let ((function (compile-expression subexpr)))
       (expression-lambda #:greedy-repetition (text position end)
-        (let ((results
-               (loop for result = (funcall function text position end)
-                     until (error-result-p result)
-                     do (setf position (result-position result))
-                     collect result)))
-          (make-result
-           :position position
-           :production (mapcar #'result-production results)))))))
+        (let ((last)
+              (results '()))
+          (loop for result = (funcall function text position end)
+             until (error-result-p (setf last result))
+             do (setf position (result-position result))
+               (push result results))
+          (make-successful-parse
+           expression position (nreverse (list* last results))
+           #'list-of-result-productions/butlast))))))
 
 ;;; Greedy positive repetitions
 
@@ -1948,19 +1977,16 @@ inspection."
     (let ((function (compile-expression subexpr)))
       (expression-lambda #:greedy-positive-repetition (text position end)
         (let* ((last nil)
-               (results
-                (loop for result = (funcall function text position end)
-                     until (error-result-p (setf last result))
-                     do (setf position (result-position result))
-                     collect result)))
+               (results))
+          (loop for result = (funcall function text position end)
+             until (error-result-p (setf last result))
+             do (setf position (result-position result))
+               (push result results))
           (if results
-              (make-result
-               :position position
-               :production (mapcar #'result-production results))
-              (make-failed-parse
-               :%position position
-               :expression expression
-               :detail last)))))))
+              (make-successful-parse
+               expression position (nreverse (list* last results))
+               #'list-of-result-productions/butlast)
+              (make-failed-parse expression position last)))))))
 
 ;;; Optionals
 
@@ -1968,7 +1994,7 @@ inspection."
   (with-expression (expression (? subexpr))
     (let ((result (eval-expression subexpr text position end)))
       (if (error-result-p result)
-          (make-result :position position)
+          (%make-successful-parse expression position result '(nil))
           result))))
 
 (defun compile-optional (expression)
@@ -1977,7 +2003,7 @@ inspection."
       (expression-lambda #:optional (text position end)
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
-              (make-result :position position)
+              (%make-successful-parse expression position result '(nil))
               result))))))
 
 ;;; Followed-by's
@@ -1986,13 +2012,9 @@ inspection."
   (with-expression (expression (& subexpr))
     (let ((result (eval-expression subexpr text position end)))
       (if (error-result-p result)
-          (make-failed-parse
-           :%position position
-           :expression expression
-           :detail result)
-          (make-result
-           :position position
-           :production (result-production result))))))
+          (make-failed-parse expression position result)
+          (make-successful-parse
+           expression position result #'successful-parse-production)))))
 
 (defun compile-followed-by (expression)
   (with-expression (expression (& subexpr))
@@ -2000,13 +2022,9 @@ inspection."
       (expression-lambda #:followed-by (text position end)
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
-              (make-failed-parse
-               :%position position
-               :expression expression
-               :detail result)
-              (make-result
-               :position position
-               :production (result-production result))))))))
+              (make-failed-parse expression position result)
+              (make-successful-parse
+               expression position result #'successful-parse-production)))))))
 
 ;;; Not followed-by's
 
@@ -2014,11 +2032,8 @@ inspection."
   (with-expression (expression (! subexpr))
     (let ((result (eval-expression subexpr text position end)))
       (if (error-result-p result)
-          (make-result
-           :position position)
-          (make-failed-parse
-           :expression expression
-           :%position position)))))
+          (%make-successful-parse expression position result '(nil))
+          (make-failed-parse expression position result)))))
 
 (defun compile-not-followed-by (expression)
   (with-expression (expression (! subexpr))
@@ -2026,11 +2041,8 @@ inspection."
       (expression-lambda #:not-followed-by (text position end)
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
-              (make-result
-               :position position)
-              (make-failed-parse
-               :expression expression
-               :%position position)))))))
+              (%make-successful-parse expression position result '(nil))
+              (make-failed-parse expression position result)))))))
 
 ;;; Semantic predicates
 
@@ -2038,16 +2050,11 @@ inspection."
   (with-expression (expression (t subexpr))
     (let ((result (eval-expression subexpr text position end)))
       (if (error-result-p result)
-          (make-failed-parse
-           :%position position
-           :expression expression
-           :detail result)
-          (let ((production (result-production result)))
+          (make-failed-parse expression position result)
+          (let ((production (successful-parse-production result)))
             (if (funcall (symbol-function (car expression)) production)
                 result
-                (make-failed-parse
-                 :%position position
-                 :expression expression)))))))
+                (make-failed-parse expression position result)))))))
 
 (defun compile-semantic-predicate (expression)
   (with-expression (expression (t subexpr))
@@ -2062,38 +2069,29 @@ inspection."
       (expression-lambda #:semantic-predicate (text position end)
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
-              (make-failed-parse
-               :%position position
-               :expression expression
-               :detail result)
-              (let ((production (result-production result)))
+              (make-failed-parse expression position result)
+              (let ((production (successful-parse-production result)))
                 (if (funcall semantic-function production)
                     result
-                    (make-failed-parse
-                     :%position position
-                     :expression expression)))))))))
+                    (make-failed-parse expression position result)))))))))
 
 ;;; Character ranges
 
 (declaim (ftype (function (* * string array-index array-index)
-                          (values (or failed-parse result) &optional))
+                          (values result &optional))
                 exec-character-ranges))
 (defun exec-character-ranges (expression ranges text position end)
   (flet ((oops ()
-           (make-failed-parse
-            :expression expression
-            :%position position)))
+           (make-failed-parse expression position nil)))
     (if (< position end)
         (let ((char (char text position)))
           (if (loop for range in ranges
-                    do (if (characterp range)
-                           (when (char= range char)
-                             (return t))
-                           (when (char<= (first range) char (second range))
-                             (return t))))
-              (make-result
-               :production char
-               :position (1+ position))
+                 do (if (characterp range)
+                        (when (char= range char)
+                          (return t))
+                        (when (char<= (first range) char (second range))
+                          (return t))))
+              (make-successful-parse expression (1+ position) nil char)
               (oops)))
         (oops))))
 

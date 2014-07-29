@@ -242,8 +242,8 @@ the entire remaining input has been consumed.
 only two values) and an integer @code{> position} as its second value
 indicating the position up to which @code{text} has been consumed.
 @item
-@code{function-name} returns a value of type @code{result} as its first
-value.
+@code{function-name} returns a value of type @code{successful-parse} as
+its first value.
 @end enumerate
 When a function terminal succeeds, the first return value is an
 arbitrary production.
