@@ -37,6 +37,8 @@ semantic predicates
 introspective facilities for development
 @item
 support for left-recursive rules
+@item
+functions as terminals
 @end itemize
 
 Esrap is maintained by @email{nikodemus@@random-state.net, Nikodemus
