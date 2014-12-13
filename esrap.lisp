@@ -330,7 +330,6 @@ constructors."))
 (defun set-cell-info (cell function rule)
   ;; Atomic update
   (setf (cell-%info cell) (cons function rule))
-  (let ())
   cell)
 
 (defun undefined-rule-function (symbol)
@@ -859,6 +858,7 @@ Following OPTIONS can be specified:
             ((:lambda lambda-list &body forms)
              (multiple-value-bind (lambda-list start end ignore)
                  (parse-lambda-list-maybe-containing-&bounds lambda-list)
+               (declare (type list ignore))
                (apply #'set-transform
                       `(lambda (,@lambda-list ,start ,end)
                          (declare (ignore ,@ignore))
@@ -1219,7 +1219,7 @@ but clause heads designate kinds of expressions instead of types. See
     (nonterminal
      (cons expression seen))
     ((and or)
-     (dolist (subexpr (cdr expression) seen)
+     (dolist (subexpr (rest expression) seen)
        (setf seen (%expression-direct-dependencies subexpr seen))))
     ((not * + ? & ! predicate)
      (%expression-direct-dependencies (second expression) seen))))
@@ -1425,19 +1425,19 @@ but clause heads designate kinds of expressions instead of types. See
   (with-expression (expression (and &rest subexprs))
     (let ((functions (mapcar #'compile-expression subexprs)))
       (named-lambda compiled-sequence (text position end)
-          (let (results)
-            (dolist (fun functions
-                     (make-result
-                      :position position
-                      :production (mapcar #'result-production (nreverse results))))
-              (let ((result (funcall fun text position end)))
-                (if (error-result-p result)
-                    (return (make-failed-parse
-                             :expression expression
-                             :position position
-                             :detail result))
-                    (setf position (result-position result)))
-                (push result results))))))))
+        (let (results)
+          (dolist (fun functions
+                   (make-result
+                    :position position
+                    :production (mapcar #'result-production (nreverse results))))
+            (let ((result (funcall fun text position end)))
+              (if (error-result-p result)
+                  (return (make-failed-parse
+                           :expression expression
+                           :position position
+                           :detail result))
+                  (setf position (result-position result)))
+              (push result results))))))))
 
 ;;; Ordered choises
 
