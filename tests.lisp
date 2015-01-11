@@ -386,29 +386,35 @@
                                     (is (search message report)))
                                   (list ,@(ensure-list messages))))))))))))
     ;; Rule does not allow empty string.
-    (signals-esrap-error ("" 0 ("Could not parse subexpression"
-                                "Encountered at"))
+    (signals-esrap-error ("" 0 ("At end of input"
+                                "^ (Line 1, Column 0, Position 0)"
+                                "Could not parse subexpression"))
       (parse 'integer ""))
+
     ;; Junk at end of input.
-    (signals-esrap-error ("123foo" 3 ("Could not parse subexpression"
-                                      "Encountered at"))
+    (signals-esrap-error ("123foo" 3 ("At" "^ (Line 1, Column 3, Position 3)"
+                                      "Could not parse subexpression"))
       (parse 'integer "123foo"))
+
     ;; Whitespace not allowed.
-    (signals-esrap-error ("1, " 1 ("Incomplete parse."
-                                   "Encountered at"))
+    (signals-esrap-error ("1, " 1 ("At" "^ (Line 1, Column 1, Position 1)"
+                                   "Incomplete parse."))
       (parse 'list-of-integers "1, "))
+
     ;; Rule not active at toplevel.
     (signals-esrap-error ("foo" nil ("Rule" "not active"))
       (parse 'maybe-active "foo"))
+
     ;; Rule not active at subexpression-level.
-    (signals-esrap-error ("ffoo" 1 ("Could not parse subexpression"
-                                    "(not active)"
-                                    "Encountered at"))
+    (signals-esrap-error ("ffoo" 1 ("At" "(Line 1, Column 1, Position 1)"
+                                    "Could not parse subexpression"
+                                    "(not active)"))
       (parse '(and "f" maybe-active) "ffoo"))
+
     ;; Failing function terminal.
-    (signals-esrap-error ("(1 2" 0 ("FUNCTION-TERMINALS.INTEGER"
-                                    "Encountered at"))
-     (parse 'function-terminals.integer "(1 2"))))
+    (signals-esrap-error ("(1 2" 0 ("At" "(Line 1, Column 0, Position 0)"
+                                    "FUNCTION-TERMINALS.INTEGER"))
+      (parse 'function-terminals.integer "(1 2"))))
 
 (test parse.string
   "Test parsing an arbitrary string of a given length."
