@@ -1,7 +1,6 @@
 \input texinfo   @c -*-texinfo-*-
 @c %**start of header
 @setfilename esrap.info
-@settitle Esrap
 @c %**end of header
 
 @settitle Esrap
