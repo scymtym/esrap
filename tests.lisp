@@ -655,6 +655,44 @@
 
 ;;; Test tracing
 
+(test trace-rule.smoke
+  "Smoke test for the rule (un)tracing functionality."
+  (labels
+      ((parse-with-trace (rule text)
+         (with-output-to-string (*trace-output*)
+           (parse rule text)))
+       (test-case (rule text recursive expected)
+         ;; No trace output before tracing.
+         (is (emptyp (parse-with-trace rule text)))
+         ;; Trace output.
+         (trace-rule rule :recursive recursive)
+         (is (string= expected (parse-with-trace rule text)))
+         ;; Back to no output.
+         (untrace-rule rule :recursive recursive)
+         (is (emptyp (parse-with-trace rule text)))))
+
+    (test-case 'integer "123" nil
+               "1: INTEGER 0?
+1: INTEGER 0-3 -> 123
+")
+    (test-case 'integer "12" t
+               "1: INTEGER 0?
+ 2: WHITESPACE 0?
+ 2: WHITESPACE -|
+ 2: DIGITS 0?
+ 2: DIGITS 0-2 -> \"12\"
+ 2: WHITESPACE 2?
+ 2: WHITESPACE -|
+1: INTEGER 0-2 -> 12
+")))
+
+(test trace-rule.condition
+  "Test conditions signaled by the rule (un)tracing functionality."
+  ;; It is important for this test that no rule of the given name
+  ;; exists - including as undefined dependency of another rule.
+  (signals error (trace-rule 'trace-rule.condition.no-such-rule.1))
+  (signals error (untrace-rule 'trace-rule.condition.no-such-rule.1)))
+
 (defrule trace-rule.condition.recursive
     (and trace-rule.condition.no-such-rule.2))
 
