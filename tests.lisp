@@ -653,6 +653,17 @@
 (test describe-terminal.condition
   (signals error (describe-terminal '(and #\a #\b))))
 
+;;; Test tracing
+
+(defrule trace-rule.condition.recursive
+    (and trace-rule.condition.no-such-rule.2))
+
+(test trace-rule.condition.recursive+undefined-rule
+  "Recursively tracing a rule with undefined dependencies should not
+   signal an error."
+  (finishes
+    (trace-rule 'trace-rule.condition.recursive :recursive t)))
+
 ;;; Test README examples
 
 (test examples-from-readme.foo

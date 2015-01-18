@@ -319,6 +319,18 @@ constructors."))
                        make-rule-cell
                        (symbol &aux (%info (cons (undefined-rule-function symbol) nil))))
                       (:conc-name cell-))
+  ;; A cons
+  ;;
+  ;;   (FUNCTION . RULE)
+  ;;
+  ;; where
+  ;;
+  ;; FUNCTION is a function with lambda-list (text position end) which
+  ;; is called to do the actual parsing work (or immediately signal an
+  ;; error in case of referenced but undefined rules).
+  ;;
+  ;; RULE is a RULE instance associated to the cell or nil for
+  ;; referenced but undefined rules.
   (%info (required-argument) :type (cons function t))
   (trace-info nil)
   (referents nil :type list))
@@ -973,43 +985,48 @@ true."
   "Turn on tracing of nonterminal SYMBOL. If RECURSIVE is true, turn
 on tracing for the whole grammar rooted at SYMBOL. If BREAK is true,
 break is entered when the rule is invoked."
-  (unless (member symbol *trace-stack* :test #'eq)
-    (let ((cell (find-rule-cell symbol)))
-      (unless cell
-        (error "Undefined rule: ~S" symbol))
-      (when (cell-trace-info cell)
-        (let ((*trace-stack* nil))
-          (untrace-rule symbol)))
-      (let ((fun (cell-function cell))
-            (rule (cell-rule cell))
-            (info (cell-%info cell)))
-        (set-cell-info cell
-                       (lambda (text position end)
-                         (when break
-                           (break "rule ~S" symbol))
-                         (let ((space (make-string *trace-level* :initial-element #\space))
-                               (*trace-level* (+ 1 *trace-level*)))
-                           (format *trace-output* "~&~A~D: ~S ~S?~%"
-                                   space *trace-level* symbol position)
-                           (finish-output *trace-output*)
-                           (let ((result (funcall fun text position end)))
-                             (if (error-result-p result)
-                                 (format *trace-output* "~&~A~D: ~S -|~%"
-                                         space *trace-level* symbol)
-                                 (format *trace-output* "~&~A~D: ~S ~S-~S -> ~S~%"
-                                         space *trace-level* symbol
-                                         position
-                                         (result-position result)
-                                         (result-production result)))
-                             (finish-output *trace-output*)
-                             result)))
-                       rule)
-        (setf (cell-trace-info cell) (list info break)))
-      (when recursive
+  (when (member symbol *trace-stack* :test #'eq)
+    (return-from trace-rule))
+
+  (let ((cell (or (find-rule-cell symbol)
+                  (error "Undefined rule: ~S" symbol))))
+    ;; If there is old trace information, removed it first.
+    (when (cell-trace-info cell)
+      (let ((*trace-stack* nil))
+        (untrace-rule symbol)))
+    (let ((fun (cell-function cell))
+          (rule (cell-rule cell))
+          (info (cell-%info cell)))
+      (set-cell-info
+       cell
+       (lambda (text position end)
+         (when break
+           (break "rule ~S" symbol))
+         (let ((space (make-string *trace-level* :initial-element #\space))
+               (*trace-level* (+ 1 *trace-level*)))
+           (format *trace-output* "~&~A~D: ~S ~S?~%"
+                   space *trace-level* symbol position)
+           (finish-output *trace-output*)
+           (let ((result (funcall fun text position end)))
+             (if (error-result-p result)
+                 (format *trace-output* "~&~A~D: ~S -|~%"
+                         space *trace-level* symbol)
+                 (format *trace-output* "~&~A~D: ~S ~S-~S -> ~S~%"
+                         space *trace-level* symbol
+                         position
+                         (result-position result)
+                         (result-production result)))
+             (finish-output *trace-output*)
+             result)))
+       rule)
+      (setf (cell-trace-info cell) (list info break))
+      ;; If requested, trace dependencies recursively, noting SYMBOL
+      ;; as having been processed to avoid infinite recursion.
+      (when (and recursive rule)
         (let ((*trace-stack* (cons symbol *trace-stack*)))
-          (dolist (dep (%rule-direct-dependencies (cell-rule cell)))
-            (trace-rule dep :recursive t :break break))))
-      t)))
+          (dolist (dep (%rule-direct-dependencies rule))
+            (trace-rule dep :recursive t :break break)))))
+    t))
 
 (defun untrace-rule (symbol &key recursive break)
   "Turn off tracing of nonterminal SYMBOL. If RECURSIVE is true, untraces the
