@@ -69,9 +69,9 @@
 (defrule indented-block #'parse-indented-block)
 
 (defrule if
-    (and (and "if" whitespace) statement (and #\colon #\Newline)
+    (and (and "if" whitespace) statement (and #\: #\Newline)
          indented-block
-         (? (and (and current-indent "else" #\colon #\Newline)
+         (? (and (and current-indent "else" #\: #\Newline)
                  indented-block)))
   (:destructure (if-keyword condition colon then
                  (&optional else-keyword else))
