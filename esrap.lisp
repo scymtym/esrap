@@ -1095,7 +1095,7 @@ inspection."
   (let* ((*current-rule* symbol)
          ;; Must bind *CURRENT-RULE* before compiling the expression!
          (function (compile-expression expression))
-         (rule-not-active (when condition (make-inactive-rule :rule symbol))))
+         (rule-not-active (make-inactive-rule :rule symbol)))
     (cond ((not condition)
            (named-lambda inactive-rule (text position end)
              (declare (ignore text position end))

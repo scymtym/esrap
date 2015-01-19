@@ -363,10 +363,41 @@
 
 (defvar *active* nil)
 
-(defrule maybe-active "foo"
+(defrule condition.maybe-active "foo"
   (:when *active*))
 
-(test condition.1
+(defrule condition.always-active "foo"
+  (:when t))
+
+(defrule condition.never-active "foo"
+  (:when nil))
+
+(test condition.maybe-active
+  "Rule not active at toplevel."
+  (flet ((do-it () (parse 'condition.maybe-active "foo"))) ; TODO avoid redundancy
+    (signals esrap-error (do-it))
+    (handler-case (do-it)
+      (esrap-error (condition)
+        (search "Rule CONDITION.MAYBE-ACTIVE not active"
+                (princ-to-string condition)))))
+
+  (finishes (let ((*active* t))
+              (parse 'condition.maybe-active "foo")))
+
+  (finishes (parse 'condition.always-active "foo"))
+
+  (flet ((do-it () (parse 'condition.never-active "foo")))
+    (signals esrap-error (do-it))
+    (handler-case (do-it)
+      (esrap-error (condition)
+        (search "Rule CONDITION.NEVER-ACTIVE not active"
+                (princ-to-string condition))))))
+
+(test condition.undefined-rules
+  "Test handling of undefined rules."
+  (signals error (parse 'condition.no-such-rule "foo")))
+
+(test condition.misc
   "Test signaling of `esrap-simple-parse-error' conditions for failed
    parses."
   (macrolet
@@ -403,13 +434,13 @@
 
     ;; Rule not active at toplevel.
     (signals-esrap-error ("foo" nil ("Rule" "not active"))
-      (parse 'maybe-active "foo"))
+      (parse 'condition.never-active "foo"))
 
     ;; Rule not active at subexpression-level.
     (signals-esrap-error ("ffoo" 1 ("At" "(Line 1, Column 1, Position 1)"
                                     "Could not parse subexpression"
                                     "(not active)"))
-      (parse '(and "f" maybe-active) "ffoo"))
+      (parse '(and "f" condition.never-active) "ffoo"))
 
     ;; Failing function terminal.
     (signals-esrap-error ("(1 2" 0 ("At" "(Line 1, Column 0, Position 0)"
