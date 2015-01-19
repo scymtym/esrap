@@ -128,7 +128,7 @@ the error occurred."))
              (end    (or (find-newline :start position :from-end nil)
                          (safe-end (+ position 24))))
              (*print-circle* nil))
-        (format stream "At~:[~:; end of input~]~2%~
+        (format stream "At~:[~; end of input~]~2%~
                         ~2@T~<~@;~A~:>~%~
                         ~2@T~V@T^ (Line ~D, Column ~D, Position ~D)~2%"
                 (= position (length text))
