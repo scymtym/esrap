@@ -76,10 +76,10 @@
 
 * Example Files
 
-  + file:example-sexp.lisp: complete sample grammar and usage
-  + file:example-symbol-table.lisp: grammar with lexical scope
-  + file:example-left-recursion.lisp: multiple grammars with left recursion
-  + file:example-function-terminal.lisp: grammars with functions as terminals
+  + [[file:example-sexp.lisp]]: complete sample grammar and usage
+  + [[file:example-symbol-table.lisp]]: grammar with lexical scope
+  + [[file:example-left-recursion.lisp]]: multiple grammars with left recursion
+  + [[file:example-function-terminals.lisp]]: grammars with functions as terminals
 
 * Trivial Examples
 
