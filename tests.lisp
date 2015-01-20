@@ -712,6 +712,7 @@
                "1: INTEGER 0?
 1: INTEGER 0-3 -> 123
 ")
+
     (test-case 'integer "12" t
                "1: INTEGER 0?
  2: WHITESPACE 0?
@@ -721,6 +722,28 @@
  2: WHITESPACE 2?
  2: WHITESPACE -|
 1: INTEGER 0-2 -> 12
+")
+
+    (test-case 'left-recursion.direct "rl" nil
+               "1: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT -|
+ 2: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT 0-1 -> \"r\"
+ 2: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
+1: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
+")
+
+    (test-case 'left-recursion.direct "rl" t
+               "1: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT -|
+ 2: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT 0-1 -> \"r\"
+ 2: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
+1: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
 ")))
 
 (test trace-rule.condition

@@ -980,73 +980,83 @@ true."
 
 (defvar *trace-level* 0)
 
-(defvar *trace-stack* nil)
-
 (defun trace-rule (symbol &key recursive break)
   "Turn on tracing of nonterminal SYMBOL. If RECURSIVE is true, turn
 on tracing for the whole grammar rooted at SYMBOL. If BREAK is true,
 break is entered when the rule is invoked."
-  (when (member symbol *trace-stack* :test #'eq)
-    (return-from trace-rule))
-
-  (let ((cell (or (find-rule-cell symbol)
-                  (error "Undefined rule: ~S" symbol))))
-    ;; If there is old trace information, removed it first.
-    (when (cell-trace-info cell)
-      (let ((*trace-stack* nil))
-        (untrace-rule symbol)))
-    (let ((fun (cell-function cell))
-          (rule (cell-rule cell))
-          (info (cell-%info cell)))
-      (set-cell-info
-       cell
-       (lambda (text position end)
-         (when break
-           (break "rule ~S" symbol))
-         (let ((space (make-string *trace-level* :initial-element #\space))
-               (*trace-level* (+ 1 *trace-level*)))
-           (format *trace-output* "~&~A~D: ~S ~S?~%"
-                   space *trace-level* symbol position)
-           (finish-output *trace-output*)
-           (let ((result (funcall fun text position end)))
-             (if (error-result-p result)
-                 (format *trace-output* "~&~A~D: ~S -|~%"
-                         space *trace-level* symbol)
-                 (format *trace-output* "~&~A~D: ~S ~S-~S -> ~S~%"
-                         space *trace-level* symbol
-                         position
-                         (result-position result)
-                         (result-production result)))
-             (finish-output *trace-output*)
-             result)))
-       rule)
-      (setf (cell-trace-info cell) (list info break))
-      ;; If requested, trace dependencies recursively, noting SYMBOL
-      ;; as having been processed to avoid infinite recursion.
-      (when (and recursive rule)
-        (let ((*trace-stack* (cons symbol *trace-stack*)))
-          (dolist (dep (%rule-direct-dependencies rule))
-            (trace-rule dep :recursive t :break break)))))
-    t))
+  (let ((seen (make-hash-table :test #'eq)))
+    (labels ((trace-one (symbol cell)
+               ;; Avoid infinite recursion and processing sub-trees
+               ;; multiple times.
+               (if (gethash cell seen)
+                   (return-from trace-one)
+                   (setf (gethash cell seen) t))
+               ;; If there is old trace information, removed it first.
+               (when (cell-trace-info cell)
+                 (untrace-rule symbol))
+               ;; Wrap the cell function in a tracing function. Store
+               ;; old info in trace-info slot of CELL.
+               (let ((fun (cell-function cell))
+                     (rule (cell-rule cell))
+                     (info (cell-%info cell)))
+                 (set-cell-info
+                  cell
+                  (lambda (text position end)
+                    (when break
+                      (break "rule ~S" symbol))
+                    (format *trace-output* "~&~V@T~D: ~S ~S?~%"
+                            *trace-level* (1+ *trace-level*) symbol position)
+                    (finish-output *trace-output*)
+                    (let* ((*trace-level* (1+ *trace-level*))
+                           (result (funcall fun text position end)))
+                      (format *trace-output* "~&~V@T~D: ~S "
+                              (1- *trace-level*) *trace-level* symbol)
+                      (if (error-result-p result)
+                          (format *trace-output* "-|~%")
+                          (format *trace-output* "~S-~S -> ~S~%"
+                                  position (result-position result)
+                                  (result-production result)))
+                      (finish-output *trace-output*)
+                      result))
+                  rule)
+                 (setf (cell-trace-info cell) (list info break))
+                 ;; If requested, trace dependencies
+                 ;; recursively. Checking RULE avoids recursing into
+                 ;; referenced but undefined rules.
+                 (when (and recursive rule)
+                   (dolist (dep (%rule-direct-dependencies rule))
+                     (trace-one dep (find-rule-cell dep)))))
+               t))
+      (trace-one symbol (or (find-rule-cell symbol)
+                            (error "Undefined rule: ~S" symbol))))))
 
 (defun untrace-rule (symbol &key recursive break)
   "Turn off tracing of nonterminal SYMBOL. If RECURSIVE is true, untraces the
 whole grammar rooted at SYMBOL. BREAK is ignored, and is provided only for
 symmetry with TRACE-RULE."
   (declare (ignore break))
-  (unless (member symbol *trace-stack* :test #'eq)
-    (let ((cell (find-rule-cell symbol)))
-      (unless cell
-        (error "Undefined rule: ~S" symbol))
-      (let ((trace-info (cell-trace-info cell)))
-        (when trace-info
-          (setf (cell-%info cell) (car trace-info)
-                (cell-trace-info cell) nil))
-        (when recursive
-          (let ((*trace-stack* (cons symbol *trace-stack*)))
-            (dolist (dep (%rule-direct-dependencies (cell-rule cell)))
-              (untrace-rule dep :recursive t))))))
-    nil))
+  (let ((seen (make-hash-table :test #'eq)))
+    (labels ((untrace-one (cell)
+               ;; Avoid infinite recursion and processing sub-trees
+               ;; multiple times.
+               (if (gethash cell seen)
+                   (return-from untrace-one)
+                   (setf (gethash cell seen) t))
+               ;; Restore info from trace-info slot of CELL.
+               (let ((rule (cell-rule cell))
+                     (trace-info (cell-trace-info cell)))
+                 (when trace-info
+                   (setf (cell-%info cell) (car trace-info)
+                         (cell-trace-info cell) nil))
+                 ;; If requested, trace dependencies
+                 ;; recursively. Checking RULE avoids recursing into
+                 ;; referenced but undefined rules.
+                 (when (and recursive rule)
+                   (dolist (dep (%rule-direct-dependencies rule))
+                     (untrace-one (find-rule-cell dep)))))
+               nil))
+      (untrace-one (or (find-rule-cell symbol)
+                       (error "Undefined rule: ~S" symbol))))))
 
 (defun rule-expression (rule)
   "Return the parsing expression associated with the RULE."
