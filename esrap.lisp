@@ -1,6 +1,7 @@
 ;;;; ESRAP -- a packrat parser for Common Lisp
-;;;; by Nikodemus Siivola, 2007-2013
-;;;;    Jan Moringen, 2012-2013
+;;;;
+;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
+;;;; Copyright (c) 2012-2014 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Homepage and documentation:
 ;;;;
