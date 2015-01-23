@@ -1,5 +1,5 @@
 ;;;;  Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;;  Copyright (c) 2012-2014 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;;  Copyright (c) 2012-2015 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;;  Permission is hereby granted, free of charge, to any person
 ;;;;  obtaining a copy of this software and associated documentation files
@@ -34,7 +34,7 @@
                (:static-file "example-symbol-table.lisp")
                (:static-file "example-left-recursion.lisp")
                (:static-file "example-function-terminals.lisp")
-               (:static-file "README")))
+               (:static-file "README.org")))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
   ;; Since version 0.13
