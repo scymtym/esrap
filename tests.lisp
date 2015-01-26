@@ -712,22 +712,24 @@
       ((parse-with-trace (rule text)
          (with-output-to-string (*trace-output*)
            (parse rule text)))
-       (test-case (rule text recursive expected)
+       (test-case (trace-rule trace-args parse-rule text expected)
          ;; No trace output before tracing.
-         (is (emptyp (parse-with-trace rule text)))
+         (is (emptyp (parse-with-trace parse-rule text)))
          ;; Trace output.
-         (trace-rule rule :recursive recursive)
-         (is (string= expected (parse-with-trace rule text)))
+         (apply #'trace-rule trace-rule trace-args)
+         (is (string= expected (parse-with-trace parse-rule text)))
          ;; Back to no output.
-         (untrace-rule rule :recursive recursive)
-         (is (emptyp (parse-with-trace rule text)))))
+         (apply #'untrace-rule trace-rule trace-args)
+         (is (emptyp (parse-with-trace parse-rule text)))))
 
-    (test-case 'integer "123" nil
+    ;; Smoke test 1.
+    (test-case 'integer '() 'integer "123"
                "1: INTEGER 0?
 1: INTEGER 0-3 -> 123
 ")
 
-    (test-case 'integer "12" t
+    ;; Smoke test 2.
+    (test-case 'integer '(:recursive t) 'integer "12"
                "1: INTEGER 0?
  2: WHITESPACE 0?
  2: WHITESPACE -|
@@ -738,7 +740,9 @@
 1: INTEGER 0-2 -> 12
 ")
 
-    (test-case 'left-recursion.direct "rl" nil
+    ;; Left-recursive rule - non-recursive tracing.
+    (test-case 'left-recursion.direct '()
+               'left-recursion.direct "rl"
                "1: LEFT-RECURSION.DIRECT 0?
  2: LEFT-RECURSION.DIRECT 0?
  2: LEFT-RECURSION.DIRECT -|
@@ -749,7 +753,9 @@
 1: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
 ")
 
-    (test-case 'left-recursion.direct "rl" t
+    ;; Left-recursive rule - recursive tracing.
+    (test-case 'left-recursion.direct '(:recursive t)
+               'left-recursion.direct "rl"
                "1: LEFT-RECURSION.DIRECT 0?
  2: LEFT-RECURSION.DIRECT 0?
  2: LEFT-RECURSION.DIRECT -|
@@ -758,6 +764,15 @@
  2: LEFT-RECURSION.DIRECT 0?
  2: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
 1: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
+")
+
+    ;; Conditional tracing.
+    (test-case 'digits `(:condition ,(lambda (symbol text position end)
+                                       (declare (ignore symbol text end))
+                                       (= position 0)))
+               'list-of-integers "123, 123"
+               "1: DIGITS 0?
+1: DIGITS 0-3 -> \"123\"
 ")))
 
 (test trace-rule.condition

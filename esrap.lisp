@@ -970,19 +970,19 @@ associated with a rule, the old rule is removed first."
                                  (rule-around rule)))
          (trace-info (cell-trace-info cell)))
     (set-cell-info cell function rule)
-    (setf (cell-trace-info cell) nil)
-    (setf (slot-value rule '%symbol) symbol)
+    (setf (cell-trace-info cell)     nil
+          (slot-value rule '%symbol) symbol)
     (when trace-info
-      (trace-rule symbol :break (second trace-info)))
+      (destructuring-bind (break condition) (rest trace-info)
+        (trace-rule symbol :break break :condition condition)))
     symbol))
 
 (defun find-rule (symbol)
   "Returns rule designated by SYMBOL, if any. Symbol must be a nonterminal
 symbol."
   (check-type symbol nonterminal)
-  (let ((cell (find-rule-cell symbol)))
-    (when cell
-      (cell-rule cell))))
+  (when-let ((cell (find-rule-cell symbol)))
+    (cell-rule cell)))
 
 (defun remove-rule (symbol &key force)
   "Makes the nonterminal SYMBOL undefined. If the nonterminal is defined an
@@ -1015,12 +1015,47 @@ true."
 
 (defvar *trace-level* 0)
 
-(defun trace-rule (symbol &key recursive break)
+(defun trace-rule (symbol &key recursive break condition)
   "Turn on tracing of nonterminal SYMBOL. If RECURSIVE is true, turn
-on tracing for the whole grammar rooted at SYMBOL. If BREAK is true,
-break is entered when the rule is invoked."
+on tracing for the whole grammar rooted at SYMBOL.
+
+If BREAK is true, break is entered when the rule is invoked.
+
+If supplied, CONDITION has to be a function whose lambda-list is
+compatible to (symbol text position end). This function is called to
+determine whether trace actions should be executed for the traced
+rule.
+
+  SYMBOL is the name of the rule being executed.
+
+  TEXT is the whole text being parsed.
+
+  POSITION is the position within TEXT at which the rule is executed.
+
+  END is the end position of the portion of TEXT being parsed."
   (let ((seen (make-hash-table :test #'eq)))
-    (labels ((trace-one (symbol cell)
+    (labels ((traced (symbol break fun text position end)
+               (when break
+                 (break "rule ~S" symbol))
+               (format *trace-output* "~&~V@T~D: ~S ~S?~%"
+                       *trace-level* (1+ *trace-level*) symbol position)
+               (finish-output *trace-output*)
+               (let* ((*trace-level* (1+ *trace-level*))
+                      (result (funcall fun text position end)))
+                 (format *trace-output* "~&~V@T~D: ~S "
+                         (1- *trace-level*) *trace-level* symbol)
+                 (if (error-result-p result)
+                     (format *trace-output* "-|~%")
+                     (format *trace-output* "~S-~S -> ~S~%"
+                             position (result-position result)
+                             (result-production result)))
+                 (finish-output *trace-output*)
+                 result))
+             (traced/condition (condition symbol break fun text position end)
+               (if (funcall condition symbol text position end)
+                   (traced symbol break fun text position end)
+                   (funcall fun text position end)))
+             (trace-one (symbol cell)
                ;; Avoid infinite recursion and processing sub-trees
                ;; multiple times.
                (if (gethash cell seen)
@@ -1035,26 +1070,11 @@ break is entered when the rule is invoked."
                      (rule (cell-rule cell))
                      (info (cell-%info cell)))
                  (set-cell-info
-                  cell
-                  (lambda (text position end)
-                    (when break
-                      (break "rule ~S" symbol))
-                    (format *trace-output* "~&~V@T~D: ~S ~S?~%"
-                            *trace-level* (1+ *trace-level*) symbol position)
-                    (finish-output *trace-output*)
-                    (let* ((*trace-level* (1+ *trace-level*))
-                           (result (funcall fun text position end)))
-                      (format *trace-output* "~&~V@T~D: ~S "
-                              (1- *trace-level*) *trace-level* symbol)
-                      (if (error-result-p result)
-                          (format *trace-output* "-|~%")
-                          (format *trace-output* "~S-~S -> ~S~%"
-                                  position (result-position result)
-                                  (result-production result)))
-                      (finish-output *trace-output*)
-                      result))
+                  cell (if condition
+                           (curry #'traced/condition condition symbol break fun)
+                           (curry #'traced symbol break fun))
                   rule)
-                 (setf (cell-trace-info cell) (list info break))
+                 (setf (cell-trace-info cell) (list info break condition))
                  ;; If requested, trace dependencies
                  ;; recursively. Checking RULE avoids recursing into
                  ;; referenced but undefined rules.
@@ -1065,11 +1085,14 @@ break is entered when the rule is invoked."
       (trace-one symbol (or (find-rule-cell symbol)
                             (undefined-rule symbol))))))
 
-(defun untrace-rule (symbol &key recursive break)
-  "Turn off tracing of nonterminal SYMBOL. If RECURSIVE is true, untraces the
-whole grammar rooted at SYMBOL. BREAK is ignored, and is provided only for
-symmetry with TRACE-RULE."
-  (declare (ignore break))
+(defun untrace-rule (symbol &key recursive break condition)
+  "Turn off tracing of nonterminal SYMBOL.
+
+If RECURSIVE is true, untraces the whole grammar rooted at SYMBOL.
+
+BREAK and CONDITION are ignored, and are provided only for symmetry
+with TRACE-RULE."
+  (declare (ignore break condition))
   (let ((seen (make-hash-table :test #'eq)))
     (labels ((untrace-one (cell)
                ;; Avoid infinite recursion and processing sub-trees
