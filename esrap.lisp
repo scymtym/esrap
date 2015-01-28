@@ -798,6 +798,9 @@ symbols."
            (declare (ignore detail))
            ,production)))))
 
+(defun result-nonterminal-p (result)
+  (typep (result-expression result) 'nonterminal))
+
 (declaim (ftype (function (list &optional non-negative-integer)
                           (values non-negative-integer &optional))
                 max-of-result-positions))
@@ -814,6 +817,240 @@ symbols."
 (defun list-of-result-productions/butlast (results)
   (loop :for rest :on results :while (rest rest)
      :collect (successful-parse-production (first rest))))
+
+;;; For technical reasons, INACTIVE-RULE instances cannot be directly
+;;; created with the correct value in the POSITION slot. Fix this by
+;;; copying the position from adjacent results, if possible.
+(defun maybe-augment-inactive-rules (results)
+  (unless (some #'inactive-rule-p results)
+    (return-from maybe-augment-inactive-rules results))
+  (loop :for previous = nil :then (if (result-p current)
+                                      current
+                                      previous)
+     :for current :in results
+     :collect (if (and (inactive-rule-p current)
+                       (result-p previous))
+                  (make-inactive-rule (result-expression current)
+                                      (result-position previous))
+                  current)))
+
+(declaim (ftype (function (function result) *)
+                map-results map-max-results map-max-leaf-results))
+
+;;; Apply FUNCTION to RESULT and potentially all its ancestor results
+;;; (by providing a RECURSE function to FUNCTION) and return whatever
+;;; FUNCTION returns.
+;;;
+;;; More concretely, the lambda-list of FUNCTION has to be compatible
+;;; to
+;;;
+;;;   (result recurse)
+;;;
+;;; where RESULT is the result object currently being visited and
+;;; RECURSE is a function of no arguments that, when called, continues
+;;; the traversal into children of RESULT and returns whatever
+;;; FUNCTION returns for the sub-tree of ancestor results.
+(defun map-results (function result &key (augment-inactive-rules t))
+  (let ((function (coerce function 'function))
+        (augment (if augment-inactive-rules
+                     #'maybe-augment-inactive-rules
+                     #'identity)))
+    (labels ((do-result (result)
+               (flet ((recurse ()
+                        (let ((detail (result-detail result)))
+                          (typecase detail
+                            (cons
+                             (mapcar #'do-result (funcall augment detail)))
+                            (result
+                             (do-result detail))))))
+                 (declare (dynamic-extent #'recurse))
+                 (funcall function result #'recurse))))
+      (declare (dynamic-extent #'do-result))
+      (do-result result))))
+
+;;; Like MAP-RESULTS but only process results the position of which
+;;; (computed as the recursive maximum over ancestors for inner result
+;;; nodes) is maximal within the result tree RESULT.
+;;;
+;;; Furthermore, stop the traversal at results corresponding to !, NOT
+;;; and PREDICATE expressions since failed parses among their
+;;; respective ancestors are not causes of a failed (or successful)
+;;; parse in the usual sense.
+(defun map-max-results (function result)
+  ;; Process result tree in two passes:
+  ;;
+  ;; 1. Use MAP-RESULTS to visit result processing each with either
+  ;;    PROCESS-{LEAF or INNER}-RESULT, transforming into a tree with
+  ;;    nodes of the form
+  ;;
+  ;;      (RECURSIVE-MAX-POSITION RESULT LIST-OF-CHILDREN)
+  ;;
+  ;; 2. Use local function MAP-MAX-RESULTS to traverse the tree
+  ;;    calling FUNCTION on each RESULT.
+  (let ((function (coerce function 'function)))
+    (labels ((process-leaf-result (result)
+               (list (result-position result) result '()))
+             (process-inner-result (result recurse)
+               (declare (type function recurse))
+               (let ((children (remove nil (typecase (result-detail result)
+                                             (result (list (funcall recurse)))
+                                             (cons   (funcall recurse))))))
+                 (cond
+                   (children
+                    (let* ((max          (reduce #'max children :key #'first))
+                           (max-children (remove max children
+                                                 :test-not #'= :key #'first)))
+                      (list max result max-children)))
+                   ((not (successful-parse-p result))
+                    (process-leaf-result result)))))
+             (process-result (result recurse)
+               ;; Do not recurse into results for negation-ish and
+               ;; predicate expressions.
+               (expression-case (result-expression result)
+                 ((! not predicate) (process-leaf-result result))
+                 (t                 (process-inner-result result recurse))))
+             (map-max-results (node)
+               (destructuring-bind (position result children) node
+                 (declare (ignore position))
+                 (flet ((recurse ()
+                          (mapcar #'map-max-results children)))
+                   (declare (dynamic-extent #'recurse))
+                   (funcall function result #'recurse)))))
+      (declare (dynamic-extent #'process-leaf-result #'process-inner-result
+                               #'process-result #'map-max-results))
+      (if-let ((max-result-root (map-results #'process-result result)))
+        (map-max-results max-result-root)
+        (funcall function result (constantly '()))))))
+
+(defun map-max-leaf-results (function result)
+  (let ((function (coerce function 'function)))
+    (map-max-results (lambda (result recurse)
+                       (declare (type function recurse))
+                       (when (not (funcall recurse))
+                         (funcall function result))
+                       result)
+                     result)))
+
+(declaim (inline flattened-children))
+(defun flattened-children (recurse)
+  (let ((all-children (funcall (the function recurse))))
+    (remove-duplicates (reduce #'append all-children) :test #'eq)))
+
+;;; Return a "context"-providing child result of RESULT, i.e. the most
+;;; specific ancestor result of RESULT the path to which contains no
+;;; forks:
+;;;
+;;;   RESULT
+;;;   |
+;;;   `-child1
+;;;     |
+;;;     `-child2
+;;;       |
+;;;       `-nonterminal <- context
+;;;         |
+;;;         +-child4
+;;;         | |
+;;;         | ...
+;;;         `-child5
+;;;           |
+;;;           ...
+;;;
+(defun result-context (result)
+  (first
+   (map-max-results
+    (lambda (result recurse)
+      (declare (type function recurse))
+      (let ((children (flattened-children recurse)))
+        (cond
+          ;; nonterminal with a single child => return the child.
+          ((and (length= 1 children)
+                (or (result-nonterminal-p (first children))
+                    (not (result-nonterminal-p result))))
+           children)
+          ;; nonterminal with multiple children, i.e. common
+          ;; derivation ends here => return RESULT.
+          (t
+           (list result)))))
+    result)))
+
+;;; Return an explicit description (i.e. a STRING or CONDITION) of the
+;;; cause of the parse failure if such a thing can be found in the
+;;; result tree rooted at RESULT.
+(defun result-root-cause (result)
+  (first
+   (map-max-results
+    (lambda (result recurse)
+      (cond
+        ((typep result 'inactive-rule)
+         (list (let ((*package* (load-time-value (find-package :keyword))))
+                 (format nil "Rule ~S is not active"
+                         (result-expression result)))))
+        ((typep (result-detail result) '(or string condition))
+         (list (result-detail result)))
+        (t
+         (flattened-children recurse))))
+    result)))
+
+;;; Return a list of terminals that would have allowed the failed
+;;; parsed represented by RESULT to succeed.
+(defun result-expected-input (result)
+  (let ((expected '()))
+    (map-max-leaf-results
+     (lambda (leaf)
+       (mapc (lambda (start-terminal)
+               (pushnew start-terminal expected :test #'expression-equal-p))
+             (typecase leaf
+               (failed-parse
+                (expression-start-terminals (result-expression leaf)))
+               (successful-parse
+                '((not (character)))))))
+     result)
+    (sort expected #'expression<)))
+
+;;; Return a list of children of RESULT that are the roots of disjoint
+;;; result sub-trees.
+;;;
+;;; Precondition: RESULT is a nonterminal with multiple children
+;;; (I.e. RESULT is typically the return value of RESULT-CONTEXT).
+(defun partition-results (result)
+  (flet ((child-closure (result)
+           (let ((results (list result)))
+             (map-max-results (lambda (result recurse)
+                                (pushnew result results :test #'eq)
+                                (funcall recurse))
+                              result)
+             results)))
+    (declare (dynamic-extent #'child-closure))
+    (map-max-results
+     (lambda (result recurse)
+       (let ((children (flattened-children recurse)))
+         (cond
+           ;; No children => certainly no fork in ancestors => return
+           ;; RESULT.
+           ((null children)
+            (list result))
+           ;; Only a single child, i.e. children have not been
+           ;; partitioned => return RESULT.
+           ((length= 1 children)
+            (list result))
+           ;; Multiple children, but not all of them are nonterminals
+           ;; and RESULT is a nonterminal => do not use the partition
+           ;; into CHILDREN and instead return RESULT.
+           ((and (result-nonterminal-p result)
+                 (notevery #'result-nonterminal-p children))
+            (list result))
+           ;; Multiple children, all of which are nonterminals. If the
+           ;; child-closures of all children are disjoint => use the
+           ;; partition into children. Otherwise => do not use the
+           ;; partition and instead return RESULT.
+           (t
+            (let ((closures (mapcar #'child-closure children)))
+              (loop :named outer :for (closure1 . rest) :on closures :do
+                 (loop :for closure2 :in rest :do
+                    (when (intersection closure1 closure2 :test #'eq)
+                      (return-from outer (list result))))
+                 :finally (return-from outer children)))))))
+     result)))
 
 ;;; MAIN INTERFACE
 
@@ -1519,6 +1756,20 @@ inspection."
                                   (cons predicate-name)))))
       (typep right '(not (or string character (eql character)
                              (cons predicate-name))))))
+
+(defun expression-equal-p (left right)
+  (labels ((rec (left right)
+             (cond
+               ((and (typep left  '(or string character))
+                     (typep right '(or string character)))
+                (string= left right))
+               ((and (consp left) (consp right))
+                (and (rec (car left) (car right))
+                     (rec (cdr left) (cdr right))))
+               (t
+                (equalp left right)))))
+    (declare (dynamic-extent #'rec))
+    (rec left right)))
 
 (defun describe-terminal (terminal &optional (stream *standard-output*))
   "Print a description of TERMINAL onto STREAM.
