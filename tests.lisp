@@ -29,6 +29,13 @@
 (def-suite esrap)
 (in-suite esrap)
 
+;;; Utilities
+
+(defmacro with-silent-compilation-unit (() &body body)
+  `(let ((*error-output* (make-broadcast-stream)))
+     (with-compilation-unit (:override t)
+       ,@body)))
+
 ;;; defrule tests
 
 (test defrule.check-expression
@@ -160,7 +167,13 @@
   (is (equal '(nil 1 t)
              (multiple-value-list
               (parse '(? list-of-integers) " a"
-                     :start 1 :junk-allowed t)))))
+                     :start 1 :junk-allowed t))))
+
+  ;; Handling of :raw (by the compiler-macro).
+  (is (equal '(123 nil t)
+             (multiple-value-list (parse 'integer "123" :raw nil))))
+  (is (typep (parse 'integer "123" :raw t) 'esrap::result))
+  (is (typep (parse 'integer "12a" :raw t) 'esrap::error-result)))
 
 (defrule single-token/bounds.1 (+ (not-space character))
   (:lambda (result &bounds start end)
@@ -402,6 +415,20 @@
     (parse 'no-such-rule "foo"))
   (signals undefined-rule-error
     (parse 'condition.undefined-dependency "foo")))
+
+(test condition.invalid-argument-combinations
+  "Test handling of invalid PARSE argument combinations."
+  ;; Prevent the compiler-macro form recognizing the invalid argument
+  ;; combination at compile-time.
+  (locally (declare (notinline parse))
+    (signals error (parse 'integer "1" :junk-allowed t :raw t)))
+  ;; Compiler-macro should recognize the invalid argument combination
+  ;; at compile-time. Relies on the implementation detecting invalid
+  ;; keyword arguments at compile-time.
+  (signals warning
+    (with-silent-compilation-unit ()
+      (compile nil '(lambda ()
+                      (parse 'integer "1" :junk-allowed t :raw t))))))
 
 (test condition.misc
   "Test signaling of `esrap-simple-parse-error' conditions for failed

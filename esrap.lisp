@@ -693,7 +693,7 @@ symbols."
 
 ;;; MAIN INTERFACE
 
-(defun parse (expression text &key (start 0) end junk-allowed)
+(defun parse (expression text &key (start 0) end junk-allowed raw)
   "Parses TEXT using EXPRESSION from START to END.
 
 Incomplete parses, that is not consuming the entirety of TEXT, are
@@ -713,36 +713,67 @@ failed parses for cases like
   (parse '(! #\\a) \"a\" :junk-allowed t)
   (parse '(! #\\a) \"b\" :junk-allowed t)
 
-in which the first two return values cannot indicate failures."
+in which the first two return values cannot indicate failures.
+
+RAW controls whether the parse result is interpreted and translated
+into the return values described above. If RAW is true, a parse result
+of type RESULT or ERROR-RESULT is returned as a single value.
+
+Note that the combination of arguments :junk-allowed t :raw t does not
+make sense since the JUNK-ALLOWED parameter is used when parse results
+are interpreted and translated into return values which does not
+happen when :raw t."
   ;; There is no backtracking in the toplevel expression -- so there's
   ;; no point in compiling it as it will be executed only once -- unless
   ;; it's a constant, for which we have a compiler-macro.
-  (let ((end (or end (length text)))
-        (*cache* (make-cache))
-        (*heads* (make-heads)))
-    (process-parse-result
-     (eval-expression expression text start end)
-     text start end
-     junk-allowed)))
+  (when (and junk-allowed raw)
+    (error "~@<The combination of arguments ~{~S~^ ~} does not make ~
+            sense.~@:>"
+           (list :junk-allowed junk-allowed :raw raw)))
+  (let* ((end (or end (length text)))
+         (*cache* (make-cache))
+         (*heads* (make-heads))
+         (result (eval-expression expression text start end)))
+    (if raw
+        result
+        (process-parse-result result text start end junk-allowed))))
 
-(define-compiler-macro parse (&whole form expression &rest arguments
+(define-compiler-macro parse (&whole form expression text
+                              &rest arguments &key &allow-other-keys
                               &environment env)
-  (if (constantp expression env)
-      (with-gensyms (expr-fun)
-        `(let ((,expr-fun (load-time-value (compile-expression ,expression))))
-           ;; This inline-lambda here provides keyword defaults and
+  (flet ((make-expansion (result-var rawp junk-allowed-p body)
+           ;; This inline-lambda provides keyword defaults and
            ;; parsing, so the compiler-macro doesn't have to worry
            ;; about evaluation order.
-           ((lambda (text &key (start 0) end junk-allowed)
-              (let ((*cache* (make-cache))
-                    (*heads* (make-heads))
-                    (end (or end (length text))))
-                (process-parse-result
-                 (funcall ,expr-fun text start end)
-                 text start end
-                 junk-allowed)))
-            ,@arguments)))
-      form))
+           (with-gensyms (expr-fun)
+             `(let ((,expr-fun (load-time-value (compile-expression ,expression))))
+                ((lambda (text &key (start 0) end
+                                    ,@(if rawp '(raw))
+                                    ,@(if junk-allowed-p '(junk-allowed)))
+                   (let* ((end (or end (length text)))
+                          (*cache* (make-cache))
+                          (*heads* (make-heads))
+                          (,result-var (funcall ,expr-fun text start end)))
+                     ,body))
+                 ,text ,@(remove-from-plist arguments :raw))))))
+   (cond
+     ((not (constantp expression env))
+      form)
+     ((let ((raw (getf arguments :raw 'missing)))
+        (when (and (not (eq raw 'missing))
+                   (constantp raw env))
+          (let ((rawp (eval raw)))
+            (make-expansion 'result nil (not rawp)
+                            (if rawp
+                                'result
+                                '(process-parse-result
+                                  result text start end junk-allowed)))))))
+     (t
+      (make-expansion 'result t t
+                      '(if raw
+                           result
+                           (process-parse-result
+                            result text start end junk-allowed)))))))
 
 (defun process-parse-result (result text start end junk-allowed)
   (cond
@@ -1593,13 +1624,16 @@ but clause heads designate kinds of expressions instead of types. See
   ;; The protocol is as follows:
   ;;
   ;; FUNCTION succeeded if one of
-  ;; 1) returns two values and (> END-POSITION POSITION)
-  ;; 2) three values and RESULT is T
+  ;; 1) returns three values and RESULT is T
+  ;; 2) returns two values and END-POSITION is NIL
+  ;; 3) returns two values and (> END-POSITION POSITION)
+  ;; 4) returns one value of type RESULT
   ;;
   ;; FUNCTION failed if one of
-  ;; 1) (= END-POSITION POSITION) (since no progress has been made),
-  ;;    but only if RESULT is not T
-  ;; 2) RESULT is a string or a condition
+  ;; 1) returns at least two values and (= END-POSITION POSITION)
+  ;;    (since no progress has been made), but only if RESULT is not T
+  ;; 2) returns three values and RESULT is a string or a condition
+  ;; 3) returns one value of type ERROR-RESULT
   ;;
   ;; When RESULT is a string or a condition, END-POSITION can indicate
   ;; the exact position of the failure but is also allowed to be NIL.
@@ -1610,17 +1644,19 @@ but clause heads designate kinds of expressions instead of types. See
       (funcall function text position end)
     (declare (type (or null non-negative-integer) end-position)
              (type (or null string condition (eql t)) result))
-    (if (or (eq result t)
-            (and (null result)
-                 (or (null end-position)
-                     (> end-position position))))
-        (make-result
-         :position (or end-position end)
-         :production production)
-        (make-failed-parse
-         :expression expression
-         :position (or end-position position)
-         :detail result))))
+    (cond
+      ((or (result-p production) (error-result-p production))
+       production)
+      ((or (eq result t)
+           (and (null result)
+                (or (null end-position)
+                    (> end-position position))))
+       (make-result :position (or end-position end)
+                    :production production))
+      (t
+       (make-failed-parse :expression expression
+                          :position (or end-position position)
+                          :detail result)))))
 
 (defun eval-terminal-function (expression text position end)
   (with-expression (expression (function function))

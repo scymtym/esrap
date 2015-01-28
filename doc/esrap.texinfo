@@ -241,6 +241,9 @@ the entire remaining input has been consumed.
 @code{function-name} returns @code{nil} as its third value (or returns
 only two values) and an integer @code{> position} as its second value
 indicating the position up to which @code{text} has been consumed.
+@item
+@code{function-name} returns a value of type @code{result} as its first
+value.
 @end enumerate
 When a function terminal succeeds, the first return value is an
 arbitrary production.
@@ -256,6 +259,9 @@ has been made.
 or an integer @code{>= position} and a string or a condition explaining
 the failure. In this case, when the second value is not @code{nil}, it
 indicates the exact position of the failure.
+@item
+@code{function-name} returns a value of type @code{error-result} as its
+first value.
 @end enumerate
 
 Note that rules which use functions as terminals do not automatically

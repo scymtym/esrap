@@ -48,8 +48,14 @@
 
 ;; PARSE-INDENTED-BLOCK is the real meat. It determines the new
 ;; indentation depth via a nested (PARSE INDENT ...) call which does
-;; not consume input. The block's content can then be parsed with an
+;; not consume input. The block's content can then be parsed with a
 ;; suitably increased current indent.
+;;
+;; The result of the second PARSE call is returned "raw" in case of
+;; success. This allows the associated result tree to be attached to
+;; the global result tree and permits lazy computation of rule
+;; productions within the sub-tree (beneficial if e.g. the result of
+;; the parse, despite successful, is not used in the global result).
 (defun parse-indented-block (text position end)
   (multiple-value-bind (new-indent new-position)
       (parse 'indent text :start position :end end
@@ -57,7 +63,7 @@
     (if (> new-indent *current-indent*)
         (let ((*current-indent* new-indent))
           (parse '(+ indented-block-content) text
-                 :start position :end end :junk-allowed t))
+                 :start position :end end :raw t))
         (values nil new-position "Expected indent"))))
 
 (defrule indented-block #'parse-indented-block)
