@@ -1549,7 +1549,7 @@ but clause heads designate kinds of expressions instead of types. See
     (named-lambda compiled-terminal (text position end)
       (exec-terminal string length text position end case-sensitive-p))))
 
-(defun exec-terminal-function (function text position end)
+(defun exec-terminal-function (expression function text position end)
   (declare (type function function))
   ;; The protocol is as follows:
   ;;
@@ -1579,19 +1579,20 @@ but clause heads designate kinds of expressions instead of types. See
          :position (or end-position end)
          :production production)
         (make-failed-parse
-         :expression function
+         :expression expression
          :position (or end-position position)
          :detail result))))
 
 (defun eval-terminal-function (expression text position end)
   (with-expression (expression (function function))
-    (exec-terminal-function (ensure-function function) text position end)))
+    (let ((function (ensure-function function)))
+      (exec-terminal-function expression function text position end))))
 
 (defun compile-terminal-function (expression)
   (with-expression (expression (function function))
     (let ((function (ensure-function function)))
       (named-lambda compiled-terminal-function (text position end)
-        (exec-terminal-function function text position end)))))
+        (exec-terminal-function expression function text position end)))))
 
 ;;; Nonterminals
 
