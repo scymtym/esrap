@@ -105,38 +105,54 @@ the error occurred."))
 (defmethod print-object :before ((condition esrap-error) stream)
   (when (or *print-escape*
             *print-readably*
-            (and *print-lines* (<= *print-lines* 4)))
+            (and *print-lines* (<= *print-lines* 5)))
     (return-from print-object))
 
   ;; FIXME: this looks like it won't do the right thing when used as
   ;; part of a logical block.
   (if-let ((text (esrap-error-text condition))
            (position (esrap-error-position condition)))
-    (labels ((safe-start (index)
-               (max index 0))
-             (safe-end (index)
-               (min index (length text)))
+    (labels ((safe-index (index)
+               (min (max index 0) (length text)))
              (find-newline (&key (start 0) (end (length text)) (from-end t))
-               (position #\Newline text
-                         :start    (safe-start start)
-                         :end      (safe-end end)
-                         :from-end from-end)))
-      (let* ((line   (count #\Newline text :end position))
-             (column (- position (or (find-newline :end position) 0) 1))
-             ;; FIXME: magic numbers
-             (start  (if-let ((newline (find-newline :start (- position 32)
-                                                     :end   position)))
-                       (1+ newline)
-                       (safe-start (- position 32))))
-             (end    (or (find-newline :start position :from-end nil)
-                         (safe-end (+ position 24))))
+               (let ((start (safe-index start))
+                     (end   (safe-index end)))
+                (cond
+                  ((when-let ((position (position #\Newline text
+                                                  :start start :end end
+                                                  :from-end from-end)))
+                     (1+ position)))
+                  ((and from-end (zerop start))
+                   start)
+                  ((and (not from-end) (= end (length text)))
+                   end)))))
+      ;; FIXME: magic numbers
+      (let* ((line       (count #\Newline text :end position))
+             (column     (- position (or (find-newline :end position) 0) 1))
+             (min-start  (- position 160))
+             (max-end    (+ position 24))
+             (line-start (or (find-newline :start min-start
+                                           :end   position)
+                             (safe-index min-start)))
+             (start      (cond
+                           ((= (safe-index min-start) line-start)
+                            line-start)
+                           ((find-newline :start min-start
+                                          :end   (1- line-start)))
+                           (t
+
+                            line-start)))
+             (end        (or (find-newline :start    position
+                                           :end      max-end
+                                           :from-end nil)
+                             (safe-index max-end)))
              (*print-circle* nil))
         (format stream "At~:[~; end of input~]~2%~
                         ~2@T~<~@;~A~:>~%~
                         ~2@T~V@T^ (Line ~D, Column ~D, Position ~D)~2%"
                 (= position (length text))
                 (list (subseq text start end))
-                (- position start)
+                (- position line-start)
                 (1+ line) (1+ column) position)))
 
     (format stream "~2&<text and position not available>~2%")))

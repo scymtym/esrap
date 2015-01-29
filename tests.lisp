@@ -438,6 +438,12 @@
                                    "Incomplete parse."))
       (parse 'list-of-integers "1, "))
 
+    ;; Multi-line input.
+    (signals-esrap-error ("1,
+2, " 4 ("At" "1," "^ (Line 2, Column 1, Position 4)" "Incomplete parse."))
+      (parse 'list-of-integers "1,
+2, "))
+
     ;; Rule not active at toplevel.
     (signals-esrap-error ("foo" nil ("Rule" "not active"))
       (parse 'condition.never-active "foo"))
