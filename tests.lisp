@@ -418,10 +418,12 @@
                   (when ,position
                     (is (= (esrap-error-position condition) ,position)))
                   ,@(when messages
-                      `((let ((report (princ-to-string condition)))
-                          (mapcar (lambda (message)
-                                    (is (search message report)))
-                                  (list ,@(ensure-list messages))))))))))))
+                      `((let ((report (princ-to-string condition))
+                              (position 0))
+                          (mapc (lambda (message)
+                                  (is (setf position (search message report
+                                                             :start2 position))))
+                                (list ,@(ensure-list messages))))))))))))
     ;; Rule does not allow empty string.
     (signals-esrap-error ("" 0 ("At end of input"
                                 "^ (Line 1, Column 0, Position 0)"
