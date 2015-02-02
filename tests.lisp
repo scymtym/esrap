@@ -36,6 +36,26 @@
      (with-compilation-unit (:override t)
        ,@body)))
 
+(defun call-expecting-signals-esrap-error (thunk input position
+                                           &optional messages)
+  (signals (esrap-error) (funcall thunk))
+  (handler-case (funcall thunk)
+    (esrap-error (condition)
+      (is (string= (esrap-error-text condition) input))
+      (when position
+        (is (= (esrap-error-position condition) position)))
+      (let ((report (princ-to-string condition))
+            (position 0))
+        (mapc (lambda (message)
+                (is (setf position (search message report
+                                           :start2 position))))
+              messages)))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro signals-esrap-error ((input position &optional messages) &body body)
+    `(call-expecting-signals-esrap-error
+      (lambda () ,@body) ,input ,position (list ,@(ensure-list messages)))))
+
 ;;; defrule tests
 
 (test defrule.check-expression
@@ -433,60 +453,42 @@
 (test condition.misc
   "Test signaling of `esrap-simple-parse-error' conditions for failed
    parses."
-  (macrolet
-      ((signals-esrap-error ((input position &optional messages) &body body)
-         (once-only (position)
-           `(flet ((do-it () ,@body))
-              (signals (esrap-error)
-                (do-it))
-              (handler-case (do-it)
-                (esrap-error (condition)
-                  (is (string= (esrap-error-text condition) ,input))
-                  (when ,position
-                    (is (= (esrap-error-position condition) ,position)))
-                  ,@(when messages
-                      `((let ((report (princ-to-string condition))
-                              (position 0))
-                          (mapc (lambda (message)
-                                  (is (setf position (search message report
-                                                             :start2 position))))
-                                (list ,@(ensure-list messages))))))))))))
-    ;; Rule does not allow empty string.
-    (signals-esrap-error ("" 0 ("At end of input"
-                                "^ (Line 1, Column 0, Position 0)"
-                                "Could not parse subexpression"))
-      (parse 'integer ""))
+  ;; Rule does not allow empty string.
+  (signals-esrap-error ("" 0 ("At end of input"
+                              "^ (Line 1, Column 0, Position 0)"
+                              "Could not parse subexpression"))
+    (parse 'integer ""))
 
-    ;; Junk at end of input.
-    (signals-esrap-error ("123foo" 3 ("At" "^ (Line 1, Column 3, Position 3)"
-                                      "Could not parse subexpression"))
-      (parse 'integer "123foo"))
+  ;; Junk at end of input.
+  (signals-esrap-error ("123foo" 3 ("At" "^ (Line 1, Column 3, Position 3)"
+                                         "Could not parse subexpression"))
+    (parse 'integer "123foo"))
 
-    ;; Whitespace not allowed.
-    (signals-esrap-error ("1, " 1 ("At" "^ (Line 1, Column 1, Position 1)"
-                                   "Incomplete parse."))
-      (parse 'list-of-integers "1, "))
+  ;; Whitespace not allowed.
+  (signals-esrap-error ("1, " 1 ("At" "^ (Line 1, Column 1, Position 1)"
+                                      "Incomplete parse."))
+    (parse 'list-of-integers "1, "))
 
-    ;; Multi-line input.
-    (signals-esrap-error ("1,
+  ;; Multi-line input.
+  (signals-esrap-error ("1,
 2, " 4 ("At" "1," "^ (Line 2, Column 1, Position 4)" "Incomplete parse."))
-      (parse 'list-of-integers "1,
+    (parse 'list-of-integers "1,
 2, "))
 
-    ;; Rule not active at toplevel.
-    (signals-esrap-error ("foo" nil ("Rule" "not active"))
-      (parse 'condition.never-active "foo"))
+  ;; Rule not active at toplevel.
+  (signals-esrap-error ("foo" nil ("Rule" "not active"))
+    (parse 'condition.never-active "foo"))
 
-    ;; Rule not active at subexpression-level.
-    (signals-esrap-error ("ffoo" 1 ("At" "(Line 1, Column 1, Position 1)"
-                                    "Could not parse subexpression"
-                                    "(not active)"))
-      (parse '(and "f" condition.never-active) "ffoo"))
+  ;; Rule not active at subexpression-level.
+  (signals-esrap-error ("ffoo" 1 ("At" "(Line 1, Column 1, Position 1)"
+                                       "Could not parse subexpression"
+                                       "(not active)"))
+    (parse '(and "f" condition.never-active) "ffoo"))
 
-    ;; Failing function terminal.
-    (signals-esrap-error ("(1 2" 0 ("At" "(Line 1, Column 0, Position 0)"
-                                    "FUNCTION-TERMINALS.INTEGER"))
-      (parse 'function-terminals.integer "(1 2"))))
+  ;; Failing function terminal.
+  (signals-esrap-error ("(1 2" 0 ("At" "(Line 1, Column 0, Position 0)"
+                                       "FUNCTION-TERMINALS.INTEGER"))
+    (parse 'function-terminals.integer "(1 2")))
 
 (test parse.string
   "Test parsing an arbitrary string of a given length."
@@ -864,7 +866,7 @@
   (is (equal (parse 'left-recursive-grammars:ra-expr "1*2+3*4+5")
              '(+ (+ (* 1 2) (* 3 4)) 5))))
 
-(test example-left-recursion.warth
+(test example-left-recursion.warth.smoke
   "Warth's Java expression example from example-left-recursion.lisp."
  (mapc
   (curry #'apply
@@ -877,7 +879,7 @@
     ("this.x.m()" (:method-invocation (:field-access "this" "x") "m"))
     ("x[i][j].y"  (:field-access (:array-access (:array-access "x" "i") "j") "y")))))
 
-(test example-function-terminals.indented-block
+(test example-function-terminals.indented-block.smoke
   "Context-sensitive parsing via function terminals."
   (is (equal '("foo" "bar" "quux"
                (if "foo"
@@ -899,6 +901,14 @@
      whoop
    blu
 "))))
+
+(test example-function-terminals.indented-block.condition
+  "Context-sensitive parsing via function terminals."
+  (let ((input "if foo:
+bla
+"))
+    (signals-esrap-error (input 0 ("Expected indent"))
+      (parse 'esrap-example.function-terminals:indented-block input))))
 
 (test example-function-terminals.read.smoke
   "Using CL:READ as a terminal."
