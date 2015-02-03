@@ -1,22 +1,44 @@
-<html lang="en">
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Created by GNU Texinfo 5.2, http://www.gnu.org/software/texinfo/ -->
 <head>
 <title>Esrap</title>
-<meta http-equiv="Content-Type" content="text/html">
+
 <meta name="description" content="Esrap">
-<meta name="generator" content="makeinfo 4.13">
-<link title="Top" rel="top" href="#Top">
-<link href="http://www.gnu.org/software/texinfo/" rel="generator-home" title="Texinfo Homepage">
-<meta http-equiv="Content-Style-Type" content="text/css">
-<style type="text/css"><!--
-  pre.display { font-family:inherit }
-  pre.format  { font-family:inherit }
-  pre.smalldisplay { font-family:inherit; font-size:smaller }
-  pre.smallformat  { font-family:inherit; font-size:smaller }
-  pre.smallexample { font-size:smaller }
-  pre.smalllisp    { font-size:smaller }
-  span.sc    { font-variant:small-caps }
-  span.roman { font-family:serif; font-weight:normal; }
-  span.sansserif { font-family:sans-serif; font-weight:normal; }
+<meta name="keywords" content="Esrap">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link href="#SEC_Contents" rel="contents" title="Table of Contents">
+<style type="text/css">
+<!--
+  
+
+a.summary-letter {text-decoration: none}
+blockquote.smallquotation {font-size: smaller}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.indentedblock {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+div.smalldisplay {margin-left: 3.2em}
+div.smallexample {margin-left: 3.2em}
+div.smallindentedblock {margin-left: 3.2em; font-size: smaller}
+div.smalllisp {margin-left: 3.2em}
+kbd {font-style:oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+pre.smalldisplay {font-family: inherit; font-size: smaller}
+pre.smallexample {font-size: smaller}
+pre.smallformat {font-family: inherit; font-size: smaller}
+pre.smalllisp {font-size: smaller}
+span.nocodebreak {white-space:nowrap}
+span.nolinebreak {white-space:nowrap}
+span.roman {font-family:serif; font-weight:normal}
+span.sansserif {font-family:sans-serif; font-weight:normal}
+ul.no-bullet {list-style: none}
 .node { visibility:hidden; height: 0px; }
   .menu { visibility:hidden; height: 0px; }
   .chapter { background-color:#e47700; padding: 0.2em; }
@@ -30,508 +52,630 @@
   h1 { padding: 1em; text-align: center; }
   li { margin: 1em; }
 
---></style>
+
+-->
+</style>
+
+
 </head>
-<body>
-<h1 class="settitle">Esrap</h1>
-In addition to regular Packrat / Parsing Grammar / TDPL features Esrap
+
+<body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
+<h1 class="settitle" align="center">Esrap</h1>
+
+
+
+
+<p>In addition to regular Packrat / Parsing Grammar / TDPL features Esrap
 supports
-     <ul>
-<li>dynamic redefinition of nonterminals
-<li>inline grammars
-<li>semantic predicates
-<li>introspective facilities for development
-<li>support for left-recursive rules
-<li>functions as terminals
-</ul>
+</p><ul>
+<li> dynamic redefinition of nonterminals
+</li><li> inline grammars
+</li><li> semantic predicates
+</li><li> introspective facilities for development
+</li><li> support for left-recursive rules
+</li><li> functions as terminals
+</li></ul>
 
-   <p>Esrap is maintained by <a href="mailto:nikodemus@random-state.net">Nikodemus Siivola</a> and <a href="mailto:jmoringe@techfak.uni-bielefeld.de">Jan Moringen</a>.
-
-   <p>Esrap is maintained in Git:
-<pre class="example">     git clone -b stable git://github.com/scymtym/esrap.git
-</pre>
-   <p>will get you a local copy (omit <code>-b stable</code> to get the latest
+<p>Esrap is maintained by <a href="mailto:nikodemus@random-state.net">Nikodemus
+Siivola</a> and <a href="mailto:jmoringe@uni-bielefeld.de">Jan Moringen</a>.
+</p>
+<p>Esrap is maintained in Git:
+</p><div class="example">
+<pre class="example">git clone -b stable git://github.com/scymtym/esrap.git
+</pre></div>
+<p>will get you a local copy (omit <code>-b stable</code> to get the latest
 development version).
-<pre class="example">     <a href="http://github.com/scymtym/esrap">http://github.com/scymtym/esrap</a>
-</pre>
-   <p>is the GitHub project page.
-
-   <p>Esrap is licenced under an MIT-style licence.
-
-   <p>For more on packrat parsing, see
-<a href="http://pdos.csail.mit.edu/~baford/packrat/thesis/">http://pdos.csail.mit.edu/~baford/packrat/thesis/</a> for Bryan Ford's 2002
+</p><div class="example">
+<pre class="example"><a href="http://github.com/scymtym/esrap">http://github.com/scymtym/esrap</a>
+</pre></div>
+<p>is the GitHub project page.
+</p>
+<p>Esrap is licenced under an MIT-style licence.
+</p>
+<p>For more on packrat parsing, see
+<a href="http://pdos.csail.mit.edu/~baford/packrat/thesis/">http://pdos.csail.mit.edu/~baford/packrat/thesis/</a> for Bryan Ford&rsquo;s 2002
 thesis: &ldquo;Packrat Parsing: a Practical Linear Time Algorithm with Backtracking&rdquo;.
-
-   <p>For left recursion support in packrat parsers, see
-<a href="http://www.vpri.org/pdf/tr2007002_packrat.pdf">http://www.vpri.org/pdf/tr2007002_packrat.pdf</a> for A. Warth et al's
+</p>
+<p>For left recursion support in packrat parsers, see
+<a href="http://www.vpri.org/pdf/tr2007002_packrat.pdf">http://www.vpri.org/pdf/tr2007002_packrat.pdf</a> for A. Warth et al&rsquo;s
 2008 paper: &ldquo;Packrat Parsers Can Support Left Recursion&rdquo;.
+</p>
+<a name="SEC_Contents"></a>
+<h2 class="contents-heading">Table of Contents</h2>
 
-   <div class="contents">
-<h2>Table of Contents</h2>
-<ul>
-<li><a name="toc_TOC0" href="#TOC0">1 Parsing Expressions</a>
-<li><a name="toc_TOC14" href="#TOC14">2 Dictionary</a>
-<ul>
-<li><a href="#TOC15">2.1 Primary Interface</a>
-<li><a href="#TOC16">2.2 Utilities</a>
-<li><a href="#TOC17">2.3 Introspection and Intercession</a>
-<li><a href="#TOC18">2.4 Error Conditions</a>
-</li></ul>
-</li></ul>
+<div class="contents">
+<ul class="no-bullet">
+<li><a name="toc-Parsing-Expressions" href="#Parsing-Expressions">1 Parsing Expressions</a></li>
+<li><a name="toc-Dictionary" href="#Dictionary">2 Dictionary</a>
+<ul class="no-bullet">
+  <li><a name="toc-Primary-Interface" href="#Primary-Interface">2.1 Primary Interface</a></li>
+  <li><a name="toc-Utilities" href="#Utilities">2.2 Utilities</a></li>
+  <li><a name="toc-Introspection-and-Intercession" href="#Introspection-and-Intercession">2.3 Introspection and Intercession</a></li>
+  <li><a name="toc-Error-Conditions" href="#Error-Conditions">2.4 Error Conditions</a></li>
+</ul></li>
+
+</ul>
 </div>
 
-<h2 class="chapter"><a name="TOC0"></a>1 Parsing Expressions</h2>
+
+
+
+
+<a name="Parsing-Expressions"></a>
+<h2 class="chapter">1 Parsing Expressions</h2>
 
 <p>Parsing proceeds by matching text against parsing expressions.
 Matching has three components: success vs failure, consumption of
 input, and associated production.
-
-   <p>Parsing expressions that fail never consume input. Parsing expressions
+</p>
+<p>Parsing expressions that fail never consume input. Parsing expressions
 that succeed may or may not consume input.
-
-   <p>A parsing expressions can be:
-
-<h3 class="heading"><a name="TOC1"></a>Terminal</h3>
-
+</p>
+<p>A parsing expressions can be:
+</p>
+<a name="Terminal"></a>
+<h3 class="heading">Terminal</h3>
 <p>A terminal is a character or a string of length one, which succeeds and
 consumes a single character if that character matches the terminal.
-
-   <p>Additionally, Esrap supports some pseudoterminals.
-
-     <ul>
-<li>The wild terminal symbol <code>character</code> always succeeds, consuming
+</p>
+<p>Additionally, Esrap supports some pseudoterminals.
+</p>
+<ul>
+<li> The wild terminal symbol <code>character</code> always succeeds, consuming
 and producing a single character.
-<li>Expressions of the form <code>(character-ranges range ...)</code> match a
+</li><li> Expressions of the form <code>(character-ranges range ...)</code> match a
 single character from the given range(s), consuming and producing that
 character. A range can be either a list of the form <code>(#\start_char
 #\stop_char)</code> or a single character.
-<li>Multicharacter strings can be used to specify sequences of terminals:
-<code>"foo"</code> succeeds and consumes input as if <code>(and #\f #\o
+</li><li> Multicharacter strings can be used to specify sequences of terminals:
+<code>&quot;foo&quot;</code> succeeds and consumes input as if <code>(and #\f #\o
 #\o)</code>. Produces the consumed string.
-<li>Expressions of the form <code>(string length)</code> can be used to specify
+</li><li> Expressions of the form <code>(string length)</code> can be used to specify
 sequences of arbitrary characters: <code>(string 2)</code> succeeds and
 consumes input as if <code>(and character character)</code>. Produces the
 consumed string.
-</ul>
+</li></ul>
 
-<h3 class="heading"><a name="TOC2"></a>Nonterminal</h3>
-
+<a name="Nonterminal"></a>
+<h3 class="heading">Nonterminal</h3>
 <p>Nonterminals are specified using symbols. A nonterminal symbol
 succeeds if the parsing expression associated with it succeeds, and
 consumes whatever the input that expression consumes.
-
-   <p>The production of a nonterminal depends on the associated expression
+</p>
+<p>The production of a nonterminal depends on the associated expression
 and an optional transformation rule.
-
-   <p>Nonterminals are defined using <code>defrule</code>.
-
-   <p><em>Note: Currently all rules share the same namespace, so you
+</p>
+<p>Nonterminals are defined using <code>defrule</code>.
+</p>
+<p><em>Note: Currently all rules share the same namespace, so you
 should not use symbols in the COMMON-LISP package or other shared
 packages to name your rules unless you are certain there are no other
 Esrap using components in your Lisp image. In a future version of
 Esrap grammar objects will be introduced to allow multiple definitions
 of nonterminals. Symbols in the COMMON-LISP package are specifically
 reserved for use by Esrap.</em>
+</p>
+<a name="Sequence"></a>
+<h3 class="heading">Sequence</h3>
+<div class="lisp">
+<pre class="lisp">(and subexpression ...)
+</pre></div>
 
-<h3 class="heading"><a name="TOC3"></a>Sequence</h3>
-
-<pre class="lisp">     (and subexpression ...)
-</pre>
-   <p>A sequence succeeds if all subexpressions succeed, and consumes all
+<p>A sequence succeeds if all subexpressions succeed, and consumes all
 input consumed by the subexpressions. A sequence produces the
 productions of its subexpressions as a list.
+</p>
+<a name="Ordered-Choice"></a>
+<h3 class="heading">Ordered Choice</h3>
+<div class="lisp">
+<pre class="lisp">(or subexpression ...)
+</pre></div>
 
-<h3 class="heading"><a name="TOC4"></a>Ordered Choice</h3>
-
-<pre class="lisp">     (or subexpression ...)
-</pre>
-   <p>An ordered choice succeeds if any of the subexpressions succeeds, and
+<p>An ordered choice succeeds if any of the subexpressions succeeds, and
 consumes all the input consumed by the successful subexpression. An
 ordered choice produces whatever the successful subexpression
 produces.
-
-   <p>Subexpressions are checked strictly in the specified order, and once
+</p>
+<p>Subexpressions are checked strictly in the specified order, and once
 a subexpression succeeds no further ones will be tried.
+</p>
+<a name="Negation"></a>
+<h3 class="heading">Negation</h3>
+<div class="lisp">
+<pre class="lisp">(not subexpression)
+</pre></div>
 
-<h3 class="heading"><a name="TOC5"></a>Negation</h3>
-
-<pre class="lisp">     (not subexpression)
-</pre>
-   <p>A negation succeeds if the subexpression fails, and consumes one character
+<p>A negation succeeds if the subexpression fails, and consumes one character
 of input. A negation produces the character it consumes.
+</p>
+<a name="Greedy-Repetition"></a>
+<h3 class="heading">Greedy Repetition</h3>
+<div class="lisp">
+<pre class="lisp">(* subexpresssion)
+</pre></div>
 
-<h3 class="heading"><a name="TOC6"></a>Greedy Repetition</h3>
-
-<pre class="lisp">     (* subexpresssion)
-</pre>
-   <p>A greedy repetition always succeeds, consuming all input consumed by
+<p>A greedy repetition always succeeds, consuming all input consumed by
 applying subexpression repeatedly as long as it succeeds.
-
-   <p>A greedy repetition produces the productions of the subexpression as a
+</p>
+<p>A greedy repetition produces the productions of the subexpression as a
 list.
+</p>
+<a name="Greedy-Positive-Repetition"></a>
+<h3 class="heading">Greedy Positive Repetition</h3>
+<div class="lisp">
+<pre class="lisp">(+ subexpresssion)
+</pre></div>
 
-<h3 class="heading"><a name="TOC7"></a>Greedy Positive Repetition</h3>
-
-<pre class="lisp">     (+ subexpresssion)
-</pre>
-   <p>A greedy repetition succeeds if subexpression succeeds at least once,
+<p>A greedy repetition succeeds if subexpression succeeds at least once,
 and consumes all input consumed by applying subexpression repeatedly
 as long as it succeeds. A greedy positive repetition produces the
 productions of the subexpression as a list.
+</p>
+<a name="Optional"></a>
+<h3 class="heading">Optional</h3>
+<div class="lisp">
+<pre class="lisp">(? subexpression)
+</pre></div>
 
-<h3 class="heading"><a name="TOC8"></a>Optional</h3>
-
-<pre class="lisp">     (? subexpression)
-</pre>
-   <p>Optionals always succeed, and consume whatever input the subexpression
+<p>Optionals always succeed, and consume whatever input the subexpression
 consumes. An optional produces whatever the subexpression produces, or
 <code>nil</code> if the subexpression does not succeed.
+</p>
+<a name="Followed_002dBy-Predicate"></a>
+<h3 class="heading">Followed-By Predicate</h3>
+<div class="lisp">
+<pre class="lisp">(&amp; subexpression)
+</pre></div>
 
-<h3 class="heading"><a name="TOC9"></a>Followed-By Predicate</h3>
-
-<pre class="lisp">     (&amp; subexpression)
-</pre>
-   <p>A followed-by predicate succeeds if the subexpression succeeds, and
+<p>A followed-by predicate succeeds if the subexpression succeeds, and
 <em>consumes no input</em>. A followed-by predicate produces whatever
 the subexpression produces.
+</p>
+<a name="Not_002dFollowed_002dBy-Predicate"></a>
+<h3 class="heading">Not-Followed-By Predicate</h3>
+<div class="lisp">
+<pre class="lisp">(! subexpression)
+</pre></div>
 
-<h3 class="heading"><a name="TOC10"></a>Not-Followed-By Predicate</h3>
-
-<pre class="lisp">     (! subexpression)
-</pre>
-   <p>A not-followed-by predicate succeeds if the subexpression does not
+<p>A not-followed-by predicate succeeds if the subexpression does not
 succeed, and <em>consumes no input</em>. A not-followed-by predicate
 produces <code>nil</code>.
+</p>
+<a name="Semantic-Predicates"></a>
+<h3 class="heading">Semantic Predicates</h3>
+<div class="lisp">
+<pre class="lisp">(predicate-name subexpression)
+</pre></div>
 
-<h3 class="heading"><a name="TOC11"></a>Semantic Predicates</h3>
-
-<pre class="lisp">     (predicate-name subexpression)
-</pre>
-   <p>The <code>predicate-name</code> is a symbol naming a global function. A
+<p>The <code>predicate-name</code> is a symbol naming a global function. A
 semantic predicate succeeds if subexpression succeeds <em>and</em> the
 named function returns true for the production of the subexpression. A
 semantic predicate produces whatever the subexpression produces.
-
-   <p><em>Note: semantic predicates may change in the future to produce
+</p>
+<p><em>Note: semantic predicates may change in the future to produce
 whatever the predicate function returns.</em>
+</p>
+<a name="Functions-as-Terminals"></a>
+<h3 class="heading">Functions as Terminals</h3>
+<div class="lisp">
+<pre class="lisp">(function function-name)
+</pre></div>
 
-<h3 class="heading"><a name="TOC12"></a>Functions as Terminals</h3>
-
-<pre class="lisp">     (function function-name)
-</pre>
-   <p><code>function-name</code> is a symbol naming a global
-function. <code>function-name</code>'s lambda-list has to be compatible to
+<p><code>function-name</code> is a symbol naming a global
+function. <code>function-name</code>&rsquo;s lambda-list has to be compatible to
 <code>(text position end)</code> where <code>text</code> is the whole input and
 <code>position</code> and <code>end</code> indicate the maximal subsequence
 <code>function-name</code> should attempt to parse.
-
-   <p>A function terminal succeeds if either
-     <ol type=1 start=1>
-<li><code>function-name</code> returns <code>T</code> as its third value.
-<li><code>function-name</code> returns <code>nil</code> as its third value (or returns
+</p>
+<p>A function terminal succeeds if either
+</p><ol>
+<li> <code>function-name</code> returns <code>T</code> as its third value.
+</li><li> <code>function-name</code> returns <code>nil</code> as its third value (or returns
 only two values) and <code>nil</code> as its second value. This indicates that
 the entire remaining input has been consumed.
-<li><code>function-name</code> returns <code>nil</code> as its third value (or returns
+</li><li> <code>function-name</code> returns <code>nil</code> as its third value (or returns
 only two values) and an integer <code>&gt; position</code> as its second value
 indicating the position up to which <code>text</code> has been consumed.
-        </ol>
-When a function terminal succeeds, the first return value is an
+</li><li> <code>function-name</code> returns a value of type <code>result</code> as its first
+value.
+</li></ol>
+<p>When a function terminal succeeds, the first return value is an
 arbitrary production.
-
-   <p>A function terminal fails if either
-     <ol type=1 start=1>
-<li><code>function-name</code> returns two values: an ignored value and
+</p>
+<p>A function terminal fails if either
+</p><ol>
+<li> <code>function-name</code> returns two values: an ignored value and
 <code>position</code>. Returning <code>position</code> indicates that no progress
 has been made.
-<li><code>function-name</code> returns three values: an ignored value, <code>nil</code>
+</li><li> <code>function-name</code> returns three values: an ignored value, <code>nil</code>
 or an integer <code>&gt;= position</code> and a string or a condition explaining
 the failure. In this case, when the second value is not <code>nil</code>, it
 indicates the exact position of the failure.
-        </ol>
+</li><li> <code>function-name</code> returns a value of type <code>error-result</code> as its
+first value.
+</li></ol>
 
-   <p>Note that rules which use functions as terminals do not automatically
+<p>Note that rules which use functions as terminals do not automatically
 pick up redefinitions of the used functions. For that to happen, the
 rules have to be redefined as well.
-
-   <p>See <samp><span class="file">example-function-terminals.lisp</span></samp> for examples.
-
-<h3 class="heading"><a name="TOC13"></a>Left Recursion</h3>
+</p>
+<p>See <samp>example-function-terminals.lisp</samp> for examples.
+</p>
+<a name="Left-Recursion"></a>
+<h3 class="heading">Left Recursion</h3>
 
 <p>One aspect of designing Esrap rules is <em>left recursion</em>. A
 <em>direct left recursive</em> rule is of the form
-<pre class="lisp">     (defrule left-recursion (or (and left-recursion STUFF) ALTERNATIVES))
-</pre>
-   <p>The simplest <em>indirect left recursive</em> rule is of the form
-<pre class="lisp">     (defrule left-recursion.1 left-recursion.2)
-     (defrule left-recursion.2 (or (and left-recursion.1 STUFF) ALTERNATIVES))
-</pre>
-   <p>Esrap can handle both kinds of left recursive rules, but the linear-time
+</p><div class="lisp">
+<pre class="lisp">(defrule left-recursion (or (and left-recursion STUFF) ALTERNATIVES))
+</pre></div>
+<p>The simplest <em>indirect left recursive</em> rule is of the form
+</p><div class="lisp">
+<pre class="lisp">(defrule left-recursion.1 left-recursion.2)
+(defrule left-recursion.2 (or (and left-recursion.1 STUFF) ALTERNATIVES))
+</pre></div>
+
+<p>Esrap can handle both kinds of left recursive rules, but the linear-time
 guarantee generally no longer holds in such cases. The special variable
 <code>*on-left-recursion*</code> can be set to either <code>nil</code> or
-<code>:error</code> to control Esrap's behavior with respect to allowing left
+<code>:error</code> to control Esrap&rsquo;s behavior with respect to allowing left
 recursion.
+</p>
+<p>See <samp>example-left-recursion.lisp</samp> for examples.
+</p>
+<a name="Dictionary"></a>
+<h2 class="chapter">2 Dictionary</h2>
 
-   <p>See <samp><span class="file">example-left-recursion.lisp</span></samp> for examples.
+<a name="Primary-Interface"></a>
+<h3 class="section">2.1 Primary Interface</h3>
 
-<h2 class="chapter"><a name="TOC14"></a>2 Dictionary</h2>
-
-<h3 class="section"><a name="TOC15"></a>2.1 Primary Interface</h3>
-
-<p><a name="Macro-defrule"></a>
-
-<div class="defun">
-&mdash; Macro: <b>defrule</b><var> symbol expression &amp;body options<a name="index-defrule-1"></a></var><br>
-<blockquote><p><a name="index-defrule-2"></a>Define <code>symbol</code> as a nonterminal, using <code>expression</code> as associated the parsing expression.
-
-        <p>Multiple <code>options</code> specifying transforms are composed in the order of
+<a name="Macro-defrule"></a><dl>
+<dt><a name="index-defrule"></a>Macro: <strong>defrule</strong> <em>symbol expression &amp;body options</em></dt>
+<dd><a name="index-defrule-1"></a>
+<p>Define <code>symbol</code> as a nonterminal, using <code>expression</code> as associated the parsing expression.
+</p>
+<p>Multiple <code>options</code> specifying transforms are composed in the order of
 appearance:
+</p>
+<div class="lisp">
+<pre class="lisp">
+  (:text t)
+  (:function parse-integer)
+  =&gt;
+  (alexandria:compose #'parse-integer #'text)
+</pre></div>
 
-     <pre class="lisp">
-            (:text t)
-            (:function parse-integer)
-            =&gt;
-            (alexandria:compose #'parse-integer #'text)
-</pre>
-        <p>Following <code>options</code> can be specified:
+<p>Following <code>options</code> can be specified:
+</p>
+<ul>
+<li> <code>(:when test)</code>
 
-          <ul>
-<li><code>(:when test)</code>
-
-          <p>The rule is active only when <code>test</code> evaluates to true. This can be used
+<p>The rule is active only when <code>test</code> evaluates to true. This can be used
     to specify optional extensions to a grammar.
+</p>
+<p>This option can only be supplied once.
+</p>
+</li><li> <code>(:constant constant)</code>
 
-          <p>This option can only be supplied once.
-
-          <li><code>(:constant constant)</code>
-
-          <p>No matter what input is consumed or what <code>expression</code> produces, the production
+<p>No matter what input is consumed or what <code>expression</code> produces, the production
     of the rule is always <code>constant</code>.
+</p>
+</li><li> <code>(:function function)</code>
 
-          <li><code>(:function function)</code>
-
-          <p>If provided the production of the expression is transformed using
+<p>If provided the production of the expression is transformed using
     <code>function</code>. <code>function</code> can be a function name or a lambda-expression.
+</p>
+</li><li> <code>(:identity boolean)</code>
 
-          <li><code>(:identity boolean)</code>
-
-          <p>If true, the production of expression is used as-is, as if <code>(:function identity)</code>
+<p>If true, the production of expression is used as-is, as if <code>(:function identity)</code>
     has been specified. If no production option is specified, this is the default.
+</p>
+</li><li> <code>(:text boolean)</code>
 
-          <li><code>(:text boolean)</code>
-
-          <p>If true, the production of expression is flattened and concatenated into a string
+<p>If true, the production of expression is flattened and concatenated into a string
     as if by <code>(:function text) </code>has been specified.
+</p>
+</li><li> <code>(:lambda lambda-list &amp;body body)</code>
 
-          <li><code>(:lambda lambda-list &amp;body body)</code>
-
-          <p>If provided, same as using the corresponding lambda-expression with <code>:function</code>.
-
-          <p>As an extension of the standard lambda list syntax, <code>lambda-list</code> accepts
+<p>If provided, same as using the corresponding lambda-expression with <code>:function</code>.
+</p>
+<p>As an extension of the standard lambda list syntax, <code>lambda-list</code> accepts
     the optional pseudo lambda-list keyword <code>esrap:&amp;bounds</code>, which <code>(1) </code>must appear
     after all standard lambda list keywords. <code>(2) </code>can be followed by one or two
     variables to which bounding indexes of the matching substring are bound.
+</p>
+<p>Therefore:
+</p>
+<p><code>lambda-list</code> <code>::=</code> <code>(standard-lambda-list-elements [&amp;bounds start [end]])</code>
+</p>
+</li><li> <code>(:destructure destructuring-lambda-list &amp;body body)</code>
 
-          <p>Therefore:
-
-          <p><code>lambda-list</code> <code>::=</code> <code>(standard-lambda-list-elements [&amp;bounds start [end]])</code>
-
-          <li><code>(:destructure destructuring-lambda-list &amp;body body)</code>
-
-          <p>If provided, same as using a lambda-expression that destructures its argument
+<p>If provided, same as using a lambda-expression that destructures its argument
     using <code>destructuring-bind</code> and the provided lambda-list with <code>:function</code>.
-
-          <p><code>destructuring-lambda-list</code> can use <code>esrap:&amp;bounds</code> in the same way
+</p>
+<p><code>destructuring-lambda-list</code> can use <code>esrap:&amp;bounds</code> in the same way
     as described for <code>:lambda</code>.
+</p>
+</li><li> <code>(:around ([&amp;bounds start [end]]) &amp;body body)</code>
 
-          <li><code>(:around ([&amp;bounds start [end]]) &amp;body body)</code>
-
-          <p>If provided, execute <code>body</code> around the construction of the production of the
+<p>If provided, execute <code>body</code> around the construction of the production of the
     rule. <code>body</code> has to call <code>esrap:call-transform</code> to trigger the computation of
     the production. Any transformation provided via <code>:lambda</code>, <code>:function</code>
     or <code>:destructure</code> is executed inside the call to <code>esrap:call-transform</code>. As a
     result, modification to the dynamic state are visible within the
     transform.
-
-          <p><code>esrap:&amp;bounds</code> can be used in the same way as described for <code>:lambda</code>
+</p>
+<p><code>esrap:&amp;bounds</code> can be used in the same way as described for <code>:lambda</code>
     and <code>:destructure</code>.
-
-          <p>This option can be used to safely track nesting depth, manage symbol
+</p>
+<p>This option can be used to safely track nesting depth, manage symbol
     tables or for other stack-like operations.
-</ul>
-        </p></blockquote></div>
-
-   <p><a name="Function-parse"></a>
-
-<div class="defun">
-&mdash; Function: <b>parse</b><var> expression text &amp;key start end junk-allowed<a name="index-parse-3"></a></var><br>
-<blockquote><p><a name="index-parse-4"></a>Parses <code>text</code> using <code>expression</code> from <code>start</code> to <code>end</code>.
-
-        <p>Incomplete parses, that is not consuming the entirety of <code>text</code>, are
+</p></li></ul>
+</dd></dl>
+<a name="Function-parse"></a><dl>
+<dt><a name="index-parse"></a>Function: <strong>parse</strong> <em>expression text &amp;key start end junk-allowed raw</em></dt>
+<dd><a name="index-parse-1"></a>
+<p>Parses <code>text</code> using <code>expression</code> from <code>start</code> to <code>end</code>.
+</p>
+<p>Incomplete parses, that is not consuming the entirety of <code>text</code>, are
 allowed only if <code>junk-allowed</code> is true.
-
-        <p>Returns three values:
-
-        <p>1) A production, if the parse succeeded, <code>nil</code> otherwise.
+</p>
+<p>Returns three values:
+</p>
+<p>1) A production, if the parse succeeded, <code>nil</code> otherwise.
 2) The position up to which <code>text</code> has been consumed or <code>nil</code> if the
    entirety of <code>text</code> has been consumed.
 3) If the parse succeeded, even if it did not consume any input, <code>t</code> is
    returned as a third value.
-
-        <p>The third return value is necessary to distinguish successful and
+</p>
+<p>The third return value is necessary to distinguish successful and
 failed parses for cases like
+</p>
+<div class="lisp">
+<pre class="lisp">
+  (parse '(! #\a) &quot;a&quot; :junk-allowed t)
+  (parse '(! #\a) &quot;b&quot; :junk-allowed t)
+</pre></div>
 
-     <pre class="lisp">
-            (parse '(! #\a) "a" :junk-allowed t)
-            (parse '(! #\a) "b" :junk-allowed t)
-</pre>
-        <p>in which the first two return values cannot indicate failures.
-</p></blockquote></div>
-
-   <p><a name="Function-describe_002dgrammar"></a>
-
-<div class="defun">
-&mdash; Function: <b>describe-grammar</b><var> symbol &amp;optional stream<a name="index-describe_002dgrammar-5"></a></var><br>
-<blockquote><p><a name="index-describe_002dgrammar-6"></a>Prints the grammar tree rooted at nonterminal <code>symbol</code> to <code>stream</code> for human
+<p>in which the first two return values cannot indicate failures.
+</p>
+<p><code>raw</code> controls whether the parse result is interpreted and translated
+into the return values described above. If <code>raw</code> is true, a parse result
+of type <code>result</code> or <code>error-result</code> is returned as a single value.
+</p>
+<p>Note that the combination of arguments :junk-allowed t :raw t does not
+make sense since the <code>junk-allowed</code> parameter is used when parse results
+are interpreted and translated into return values which does not
+happen when :raw t.
+</p></dd></dl>
+<a name="Function-describe_002dgrammar"></a><dl>
+<dt><a name="index-describe_002dgrammar"></a>Function: <strong>describe-grammar</strong> <em>symbol &amp;optional stream</em></dt>
+<dd><a name="index-describe_002dgrammar-1"></a>
+<p>Prints the grammar tree rooted at nonterminal <code>symbol</code> to <code>stream</code> for human
 inspection.
-</p></blockquote></div>
+</p></dd></dl>
 
-<h3 class="section"><a name="TOC16"></a>2.2 Utilities</h3>
+<a name="Utilities"></a>
+<h3 class="section">2.2 Utilities</h3>
 
-<p><a name="Function-text"></a>
-
-<div class="defun">
-&mdash; Function: <b>text</b><var> &amp;rest arguments<a name="index-text-7"></a></var><br>
-<blockquote><p><a name="index-text-8"></a>Arguments must be strings, or lists whose leaves are strings.
+<a name="Function-text"></a><dl>
+<dt><a name="index-text"></a>Function: <strong>text</strong> <em>&amp;rest arguments</em></dt>
+<dd><a name="index-text-1"></a>
+<p>Arguments must be strings, or lists whose leaves are strings.
 Catenates all the strings in arguments into a single string.
-</p></blockquote></div>
+</p></dd></dl>
 
-<h3 class="section"><a name="TOC17"></a>2.3 Introspection and Intercession</h3>
+<a name="Introspection-and-Intercession"></a>
+<h3 class="section">2.3 Introspection and Intercession</h3>
 
-<p><a name="Function-add_002drule"></a>
-
-<div class="defun">
-&mdash; Function: <b>add-rule</b><var> symbol rule<a name="index-add_002drule-9"></a></var><br>
-<blockquote><p><a name="index-add_002drule-10"></a>Associates <code>rule</code> with the nonterminal <code>symbol</code>. Signals an error if the
+<a name="Function-add_002drule"></a><dl>
+<dt><a name="index-add_002drule"></a>Function: <strong>add-rule</strong> <em>symbol rule</em></dt>
+<dd><a name="index-add_002drule-1"></a>
+<p>Associates <code>rule</code> with the nonterminal <code>symbol</code>. Signals an error if the
 rule is already associated with a nonterminal. If the symbol is already
 associated with a rule, the old rule is removed first.
-</p></blockquote></div>
-
-   <p><a name="Function-change_002drule"></a>
-
-<div class="defun">
-&mdash; Function: <b>change-rule</b><var> symbol expression<a name="index-change_002drule-11"></a></var><br>
-<blockquote><p><a name="index-change_002drule-12"></a>Modifies the nonterminal <code>symbol</code> to use <code>expression</code> instead. Temporarily
+</p></dd></dl>
+<a name="Function-change_002drule"></a><dl>
+<dt><a name="index-change_002drule"></a>Function: <strong>change-rule</strong> <em>symbol expression</em></dt>
+<dd><a name="index-change_002drule-1"></a>
+<p>Modifies the nonterminal <code>symbol</code> to use <code>expression</code> instead. Temporarily
 removes the rule while it is being modified.
-</p></blockquote></div>
-
-   <p><a name="Function-find_002drule"></a>
-
-<div class="defun">
-&mdash; Function: <b>find-rule</b><var> symbol<a name="index-find_002drule-13"></a></var><br>
-<blockquote><p><a name="index-find_002drule-14"></a>Returns rule designated by <code>symbol</code>, if any. Symbol must be a nonterminal
+</p></dd></dl>
+<a name="Function-find_002drule"></a><dl>
+<dt><a name="index-find_002drule"></a>Function: <strong>find-rule</strong> <em>symbol</em></dt>
+<dd><a name="index-find_002drule-1"></a>
+<p>Returns rule designated by <code>symbol</code>, if any. Symbol must be a nonterminal
 symbol.
-</p></blockquote></div>
-
-   <p><a name="Function-remove_002drule"></a>
-
-<div class="defun">
-&mdash; Function: <b>remove-rule</b><var> symbol &amp;key force<a name="index-remove_002drule-15"></a></var><br>
-<blockquote><p><a name="index-remove_002drule-16"></a>Makes the nonterminal <code>symbol</code> undefined. If the nonterminal is defined an
+</p></dd></dl>
+<a name="Function-remove_002drule"></a><dl>
+<dt><a name="index-remove_002drule"></a>Function: <strong>remove-rule</strong> <em>symbol &amp;key force</em></dt>
+<dd><a name="index-remove_002drule-1"></a>
+<p>Makes the nonterminal <code>symbol</code> undefined. If the nonterminal is defined an
 already referred to by other rules, an error is signalled unless <code>:force</code> is
 true.
-</p></blockquote></div>
-
-   <p><a name="Function-rule_002ddependencies"></a>
-
-<div class="defun">
-&mdash; Function: <b>rule-dependencies</b><var> rule<a name="index-rule_002ddependencies-17"></a></var><br>
-<blockquote><p><a name="index-rule_002ddependencies-18"></a>Returns the dependencies of the <code>rule:</code> primary value is a list of defined
+</p></dd></dl>
+<a name="Function-rule_002ddependencies"></a><dl>
+<dt><a name="index-rule_002ddependencies"></a>Function: <strong>rule-dependencies</strong> <em>rule</em></dt>
+<dd><a name="index-rule_002ddependencies-1"></a>
+<p>Returns the dependencies of the <code>rule:</code> primary value is a list of defined
 nonterminal symbols, and secondary value is a list of undefined nonterminal
 symbols.
-</p></blockquote></div>
-
-   <p><a name="Function-rule_002dexpression"></a>
-
-<div class="defun">
-&mdash; Function: <b>rule-expression</b><var> rule<a name="index-rule_002dexpression-19"></a></var><br>
-<blockquote><p><a name="index-rule_002dexpression-20"></a>Return the parsing expression associated with the <code>rule</code>.
-</p></blockquote></div>
-
-   <p><a name="Function-_0028setf-rule_002dexpression_0029"></a>
-
-<div class="defun">
-&mdash; Function: <b>(setf rule-expression)</b><var> expression rule<a name="index-g_t_0028setf-rule_002dexpression_0029-21"></a></var><br>
-<blockquote><p><a name="index-g_t_0028setf-rule_002dexpression_0029-22"></a>Modify <code>rule</code> to use <code>expression</code> as the parsing expression. The rule must be
+</p></dd></dl>
+<a name="Function-rule_002dexpression"></a><dl>
+<dt><a name="index-rule_002dexpression"></a>Function: <strong>rule-expression</strong> <em>rule</em></dt>
+<dd><a name="index-rule_002dexpression-1"></a>
+<p>Return the parsing expression associated with the <code>rule</code>.
+</p></dd></dl>
+<a name="Function-_0028setf-rule_002dexpression_0029"></a><dl>
+<dt><a name="index-_0028setf-rule_002dexpression_0029"></a>Function: <strong>(setf rule-expression)</strong> <em>expression rule</em></dt>
+<dd><a name="index-_0028setf-rule_002dexpression_0029-1"></a>
+<p>Modify <code>rule</code> to use <code>expression</code> as the parsing expression. The rule must be
 detached beforehand.
-</p></blockquote></div>
-
-   <p><a name="Function-rule_002dsymbol"></a>
-
-<div class="defun">
-&mdash; Function: <b>rule-symbol</b><var> rule<a name="index-rule_002dsymbol-23"></a></var><br>
-<blockquote><p><a name="index-rule_002dsymbol-24"></a>Returns the nonterminal associated with the <code>rule</code>, or <code>nil</code> of the rule
+</p></dd></dl>
+<a name="Function-rule_002dsymbol"></a><dl>
+<dt><a name="index-rule_002dsymbol"></a>Function: <strong>rule-symbol</strong> <em>rule</em></dt>
+<dd><a name="index-rule_002dsymbol-1"></a>
+<p>Returns the nonterminal associated with the <code>rule</code>, or <code>nil</code> of the rule
 is not attached to any nonterminal.
-</p></blockquote></div>
+</p></dd></dl>
 
-   <p><a name="Function-trace_002drule"></a>
+<a name="Function-trace_002drule"></a><dl>
+<dt><a name="index-trace_002drule"></a>Function: <strong>trace-rule</strong> <em>symbol &amp;key recursive break condition</em></dt>
+<dd><a name="index-trace_002drule-1"></a>
+<p>Turn on tracing of nonterminal <code>symbol</code>. If <code>recursive</code> is true, turn
+on tracing for the whole grammar rooted at <code>symbol</code>.
+</p>
+<p>If <code>break</code> is true, break is entered when the rule is invoked.
+</p>
+<p>If supplied, <code>condition</code> has to be a function whose lambda-list is
+compatible to (symbol text position end). This function is called to
+determine whether trace actions should be executed for the traced
+rule.
+</p>
+<p><code>symbol</code> is the name of the rule being executed.
+</p>
+<p><code>text</code> is the whole text being parsed.
+</p>
+<p><code>position</code> is the position within <code>text</code> at which the rule is executed.
+</p>
+<p><code>end</code> is the end position of the portion of <code>text</code> being parsed.
+</p></dd></dl>
+<a name="Function-untrace_002drule"></a><dl>
+<dt><a name="index-untrace_002drule"></a>Function: <strong>untrace-rule</strong> <em>symbol &amp;key recursive break condition</em></dt>
+<dd><a name="index-untrace_002drule-1"></a>
+<p>Turn off tracing of nonterminal <code>symbol</code>.
+</p>
+<p>If <code>recursive</code> is true, untraces the whole grammar rooted at <code>symbol</code>.
+</p>
+<p><code>break</code> and <code>condition</code> are ignored, and are provided only for symmetry
+with <code>trace-rule</code>.
+</p></dd></dl>
 
-<div class="defun">
-&mdash; Function: <b>trace-rule</b><var> symbol &amp;key recursive break<a name="index-trace_002drule-25"></a></var><br>
-<blockquote><p><a name="index-trace_002drule-26"></a>Turn on tracing of nonterminal <code>symbol</code>. If <code>recursive</code> is true, turn
-on tracing for the whole grammar rooted at <code>symbol</code>. If <code>break</code> is true,
-break is entered when the rule is invoked.
-</p></blockquote></div>
+<a name="Function-expression_002dstart_002dterminals"></a><dl>
+<dt><a name="index-expression_002dstart_002dterminals"></a>Function: <strong>expression-start-terminals</strong> <em>expression</em></dt>
+<dd><a name="index-expression_002dstart_002dterminals-1"></a>
+<p>Return a list of terminals or tree of expressions with which a text
+   parsable by <code>expression</code> can start.
+</p>
+<p>A tree instead of a list is returned when <code>expression</code> contains
+   semantic predicates, <code>not</code> or <code>!</code>. Elements in the returned list or
+   tree are
+</p>
+<ul>
+<li> case (in)sensitive characters, character ranges,
+     case (in)sensitive strings, function terminals
+</li><li> semantic predicates represented as
 
-   <p><a name="Function-untrace_002drule"></a>
+<p><code>(predicate-name nested-elements)</code>
+</p>
+<p>where <code>nested-elements</code> is the list of start terminals of the
+     expression to which <code>predicate-name</code> is applied.
+</p></li><li> <code>not</code> and <code>!</code> expressions are represented as
 
-<div class="defun">
-&mdash; Function: <b>untrace-rule</b><var> symbol &amp;key recursive break<a name="index-untrace_002drule-27"></a></var><br>
-<blockquote><p><a name="index-untrace_002drule-28"></a>Turn off tracing of nonterminal <code>symbol</code>. If <code>recursive</code> is true, untraces the
-whole grammar rooted at <code>symbol</code>. <code>break</code> is ignored, and is provided only for
-symmetry with <code>trace-rule</code>.
-</p></blockquote></div>
+<p>({not,!} NESTED-ELEMENTS)
+</p>
+<p>where <code>nested-elements</code> is the list of start terminals of the
+     negated expression.
+</p>
+</li></ul>
+<p>The (outermost) list is sorted likes this:
+</p>
+<p><code>1</code>. string terminals
+   <code>2</code>. character terminals
+   <code>3</code>. the <code>character</code> wildcard terminal
+   <code>4</code>. semantic predicates
+   <code>5</code>. everything else
+</p></dd></dl>
+<a name="Function-describe_002dterminal"></a><dl>
+<dt><a name="index-describe_002dterminal"></a>Function: <strong>describe-terminal</strong> <em>terminal &amp;optional stream</em></dt>
+<dd><a name="index-describe_002dterminal-1"></a>
+<p>Print a description of <code>terminal</code> onto <code>stream</code>.
+</p>
+<p>In additional to actual terminals, <code>terminal</code> can be of the forms
+</p>
+<div class="lisp">
+<pre class="lisp">
+     (PREDICATE-NAME TERMINALS)
+     ({not,!} TERMINALS)
+</pre></div>
 
-<h3 class="section"><a name="TOC18"></a>2.4 Error Conditions</h3>
+<div class="lisp">
+<pre class="lisp">
+   (i.e. as produced by EXPRESSION-START-TERMINALS).
+</pre></div>
+</dd></dl>
 
-<p><a name="Variable-_002aon_002dleft_002drecursion_002a"></a>
+<a name="Error-Conditions"></a>
+<h3 class="section">2.4 Error Conditions</h3>
 
-<div class="defun">
-&mdash; Variable: <b>*on-left-recursion*</b><var><a name="index-g_t_002aon_002dleft_002drecursion_002a-29"></a></var><br>
-<blockquote><p><a name="index-g_t_002aon_002dleft_002drecursion_002a-30"></a>This special variable controls Esrap's behavior with respect to
+<a name="Variable-_002aon_002dleft_002drecursion_002a"></a><dl>
+<dt><a name="index-_002aon_002dleft_002drecursion_002a"></a>Variable: <strong>*on-left-recursion*</strong></dt>
+<dd><a name="index-_002aon_002dleft_002drecursion_002a-1"></a>
+<p>This special variable controls Esrap&rsquo;s behavior with respect to
 allowing left recursion.
-
-        <p>When <code>:error</code>, <code>parse</code> signals a <code>left-recursion</code> error when it encounters a
+</p>
+<p>When <code>:error</code>, <code>parse</code> signals a <code>left-recursion</code> error when it encounters a
 left recursive rule. Otherwise the rule is processed.
-
-        <p>Note: when processing left recursive rules, linear-time guarantees
+</p>
+<p>Note: when processing left recursive rules, linear-time guarantees
 generally no longer hold.
-</p></blockquote></div>
+</p></dd></dl>
 
-   <p><a name="Condition-esrap_002derror"></a>
-
-<div class="defun">
-&mdash; Condition: <b>esrap-error</b><var><a name="index-esrap_002derror-31"></a></var><br>
-<blockquote><p><a name="index-esrap_002derror-32"></a>Class precedence list: <code>esrap-error, parse-error, error, serious-condition, condition, t</code>
-
-        <p>Signaled when an Esrap parse fails. Use <code>esrap-error-text</code> to obtain the
+<a name="Condition-esrap_002derror"></a><dl>
+<dt><a name="index-esrap_002derror"></a>Condition: <strong>esrap-error</strong></dt>
+<dd><a name="index-esrap_002derror-1"></a>
+<p>Class precedence list: <code>esrap-error, parse-error, error, serious-condition, condition, t</code>
+</p>
+<p>Signaled when an Esrap parse fails. Use <code>esrap-error-text</code> to obtain the
 string that was being parsed, and <code>esrap-error-position</code> the position at which
 the error occurred.
-</p></blockquote></div>
-
-   <p><a name="Condition-left_002drecursion"></a>
-
-<div class="defun">
-&mdash; Condition: <b>left-recursion</b><var><a name="index-left_002drecursion-33"></a></var><br>
-<blockquote><p><a name="index-left_002drecursion-34"></a>Class precedence list: <code>left-recursion, esrap-error, parse-error, error, serious-condition, condition, t</code>
-
-        <p>May be signaled when left recursion is detected during Esrap parsing.
-
-        <p><code>left-recursion-nonterminal</code> names the symbol for which left recursion
+</p></dd></dl>
+<a name="Condition-left_002drecursion"></a><dl>
+<dt><a name="index-left_002drecursion"></a>Condition: <strong>left-recursion</strong></dt>
+<dd><a name="index-left_002drecursion-1"></a>
+<p>Class precedence list: <code>left-recursion, esrap-error, parse-error, error, serious-condition, condition, t</code>
+</p>
+<p>May be signaled when left recursion is detected during Esrap parsing.
+</p>
+<p><code>left-recursion-nonterminal</code> names the symbol for which left recursion
 was detected, and <code>left-recursion-path</code> lists nonterminals of which the
 left recursion cycle consists.
-
-        <p>Note: This error is only signaled if <code>*on-left-recursion*</code> is bound
+</p>
+<p>Note: This error is only signaled if <code>*on-left-recursion*</code> is bound
 to <code>:error</code>.
-</p></blockquote></div>
+</p></dd></dl>
 
-</body></html>
+<a name="Condition-undefined_002drule_002derror"></a><dl>
+<dt><a name="index-undefined_002drule_002derror"></a>Condition: <strong>undefined-rule-error</strong></dt>
+<dd><a name="index-undefined_002drule_002derror-1"></a>
+<p>Class precedence list: <code>undefined-rule-error, undefined-rule, error, serious-condition, condition, t</code>
+</p>
+<p>Signaled when an undefined rule is encountered.
+</p></dd></dl>
+
+<hr>
+
+
+
+</body>
+</html>
