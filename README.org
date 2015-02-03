@@ -16,6 +16,9 @@
 
     http://scymtym.github.com/esrap/
 
+    #+ATTR_HTML: :alt "build status image" :title Build Status :align right
+    [[https://travis-ci.org/scymtym/esrap][https://travis-ci.org/scymtym/esrap.svg]]
+
   References
 
     + Bryan Ford, 2002, "Packrat Parsing: a Practical Linear Time

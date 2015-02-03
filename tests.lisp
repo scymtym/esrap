@@ -1,5 +1,5 @@
 ;;;;  Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;;  Copyright (c) 2012-2014 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;;  Copyright (c) 2012-2015 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;;  Permission is hereby granted, free of charge, to any person
 ;;;;  obtaining a copy of this software and associated documentation files
@@ -927,4 +927,6 @@
 ;;; Test runner
 
 (defun run-tests ()
-  (run! 'esrap))
+  (let ((results (run 'esrap)))
+    (explain! results)
+    (results-status results)))
