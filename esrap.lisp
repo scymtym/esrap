@@ -338,6 +338,45 @@ characters."
     "Names and corresponding types of acceptable expression
 constructors."))
 
+(eval-when (:compile-toplevel :execute)
+  (defmacro expression-case (expression &body clauses)
+    "Similar to
+
+  (cl:typecase EXPRESSION CLAUSES)
+
+but clause heads designate kinds of expressions instead of types. See
+*EXPRESSION-KINDS*."
+    (let ((available (copy-list *expression-kinds*)))
+      (labels ((type-for-expression-kind (kind)
+                 (if-let ((cell (assoc kind available)))
+                   (progn
+                     (removef available cell)
+                     (cdr cell))
+                   (error "Invalid or duplicate clause: ~S" kind)))
+               (process-clause (clause)
+                 (destructuring-bind (kind &body body) clause
+                   (etypecase kind
+                     (cons
+                      `((or ,@(mapcar #'type-for-expression-kind kind))
+                        ,@body))
+                     (symbol
+                      `(,(type-for-expression-kind kind)
+                         ,@body))))))
+        (let ((clauses (mapcar #'process-clause clauses)))
+          ;; We did not provide clauses for all expression
+          ;; constructors and did not specify a catch-all clause =>
+          ;; error.
+          (when (and (assoc t available) (> (length available) 1))
+            (error "Unhandled expression kinds: ~{~S~^, ~}"
+                   (remove t (mapcar #'car available))))
+          ;; If we did not specify a catch-all clause, insert one
+          ;; which signals INVALID-EXPRESSION-ERROR.
+          (once-only (expression)
+            `(typecase ,expression
+               ,@clauses
+               ,@(when (assoc t available)
+                   `((t (invalid-expression-error ,expression)))))))))))
+
 ;;; RULE REPRESENTATION AND STORAGE
 ;;;
 ;;; For each rule, there is a RULE-CELL in *RULES*, whose %INFO slot has the
@@ -1279,45 +1318,6 @@ inspection."
                        rule-not-active))))))))
 
 ;;; EXPRESSION COMPILER & EVALUATOR
-
-(eval-when (:compile-toplevel :execute)
-  (defmacro expression-case (expression &body clauses)
-    "Similar to
-
-  (cl:typecase EXPRESSION CLAUSES)
-
-but clause heads designate kinds of expressions instead of types. See
-*EXPRESSION-KINDS*."
-    (let ((available (copy-list *expression-kinds*)))
-      (labels ((type-for-expression-kind (kind)
-                 (if-let ((cell (assoc kind available)))
-                   (progn
-                     (removef available cell)
-                     (cdr cell))
-                   (error "Invalid or duplicate clause: ~S" kind)))
-               (process-clause (clause)
-                 (destructuring-bind (kind &body body) clause
-                   (etypecase kind
-                     (cons
-                      `((or ,@(mapcar #'type-for-expression-kind kind))
-                        ,@body))
-                     (symbol
-                      `(,(type-for-expression-kind kind)
-                        ,@body))))))
-        (let ((clauses (mapcar #'process-clause clauses)))
-          ;; We did not provide clauses for all expression
-          ;; constructors and did not specify a catch-all clause =>
-          ;; error.
-          (when (and (assoc t available) (> (length available) 1))
-            (error "Unhandled expression kinds: ~{~S~^, ~}"
-                   (remove t (mapcar #'car available))))
-          ;; If we did not specify a catch-all clause, insert one
-          ;; which signals INVALID-EXPRESSION-ERROR.
-          (once-only (expression)
-            `(typecase ,expression
-               ,@clauses
-               ,@(when (assoc t available)
-                   `((t (invalid-expression-error ,expression)))))))))))
 
 (defun check-expression (expression)
   (labels
