@@ -51,6 +51,8 @@
 
 (defsystem :esrap-tests
   :description "Tests for ESRAP."
+  :author      "Nikodemus Siivola <nikodemus@random-state.net>"
+  :maintainer  "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
   :licence "MIT"
   :depends-on (:esrap :fiveam)
   :serial     t
