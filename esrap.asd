@@ -23,18 +23,20 @@
 (in-package :esrap-system)
 
 (defsystem :esrap
-  :version "0.12"
+  :version     "0.12"
   :description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
-  :author "Nikodemus Siivola <nikodemus@random-state.net>"
-  :maintainer "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
-  :licence "MIT"
-  :depends-on (:alexandria)
-  :components ((:file "esrap")
-               (:static-file "example-sexp.lisp")
-               (:static-file "example-symbol-table.lisp")
-               (:static-file "example-left-recursion.lisp")
-               (:static-file "example-function-terminals.lisp")
-               (:static-file "README.org")))
+  :author      "Nikodemus Siivola <nikodemus@random-state.net>"
+  :maintainer  "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
+  :licence     "MIT"
+  :depends-on  (:alexandria)
+  :components  ((:file "esrap")
+
+                (:static-file "example-sexp.lisp")
+                (:static-file "example-symbol-table.lisp")
+                (:static-file "example-left-recursion.lisp")
+                (:static-file "example-function-terminals.lisp")
+                (:static-file "README.org"))
+  :in-order-to ((test-op (test-op :esrap-tests))))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
   ;; Since version 0.13
@@ -53,13 +55,13 @@
   :description "Tests for ESRAP."
   :author      "Nikodemus Siivola <nikodemus@random-state.net>"
   :maintainer  "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
-  :licence "MIT"
-  :depends-on (:esrap :fiveam)
-  :serial     t
-  :components ((:file "example-left-recursion")
-               (:file "example-function-terminals")
-               (:file "tests")))
+  :licence     "MIT"
+  :depends-on  (:esrap :fiveam)
+  :serial      t
+  :components  ((:file "example-left-recursion")
+                (:file "example-function-terminals")
+                (:file "tests")))
 
-(defmethod perform ((op test-op) (sys (eql (find-system :esrap))))
-  (load-system :esrap-tests)
+(defmethod perform ((operation test-op)
+                    (system    (eql (find-system :esrap-tests))))
   (funcall (intern "RUN-TESTS" :esrap-tests)))
