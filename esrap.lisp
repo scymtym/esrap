@@ -368,6 +368,22 @@ constructors."))
   ;; RULE is a RULE instance associated to the cell or nil for
   ;; referenced but undefined rules.
   (%info (required-argument :%info) :type (cons function t))
+  ;; Either NIL if the corresponding rule is not currently traced or a
+  ;; list
+  ;;
+  ;;   (INFO BREAK CONDITION)
+  ;;
+  ;; where
+  ;;
+  ;; INFO is the original value (i.e. before the rule was traced) of
+  ;; the %INFO slot of the cell.
+  ;;
+  ;; BREAK is a Boolean indicating whether to CL:BREAK when the traced
+  ;; rule is executed.
+  ;;
+  ;; CONDITION is NIL or a function that is called when the traced
+  ;; rule is executed to determine whether the trace action should be
+  ;; performed.
   (trace-info nil)
   (referents nil :type list))
 
@@ -1026,9 +1042,9 @@ true."
          (trace-info (cell-trace-info cell)))
     (when cell
       (flet ((frob ()
-               (set-cell-info cell (undefined-rule-function symbol) nil)
+               (set-cell-info cell (undefined-rule-function symbol) nil) ; TODO update trace-info as part of this function?
                (when trace-info
-                 (setf (cell-trace-info cell) (list (cell-%info cell) (second trace-info))))
+                 (setf (cell-trace-info cell) (list* (cell-%info cell) (rest trace-info))))
                (when rule
                  (detach-rule rule))))
         (cond ((and rule (cell-referents cell))
@@ -1135,7 +1151,7 @@ with TRACE-RULE."
                (let ((rule (cell-rule cell))
                      (trace-info (cell-trace-info cell)))
                  (when trace-info
-                   (setf (cell-%info cell) (car trace-info)
+                   (setf (cell-%info cell) (first trace-info)
                          (cell-trace-info cell) nil))
                  ;; If requested, trace dependencies
                  ;; recursively. Checking RULE avoids recursing into

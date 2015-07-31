@@ -820,6 +820,14 @@
   (finishes
     (trace-rule 'trace-rule.condition.recursive :recursive t)))
 
+(defrule trace-rule.redefinition (and))
+
+(test trace-rule.redefinition
+  "Make sure that a traced rule can be redefined. This used to signal
+   an error."
+  (trace-rule 'trace-rule.redefinition)
+  (change-rule 'trace-rule.redefinition '(and)))
+
 ;;; Test README examples
 
 (test examples-from-readme.foo
