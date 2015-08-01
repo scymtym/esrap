@@ -665,7 +665,10 @@
   (macrolet
       ((test-case (terminal expected)
          `(is (string= ,expected (with-output-to-string (stream)
-                                   (describe-terminal ,terminal stream))))))
+                                   (with-standard-io-syntax
+                                     (let ((*print-pretty* t))
+                                       (pprint-logical-block (stream nil)
+                                         (describe-terminal ,terminal stream)))))))))
     (test-case 'character  "any character")
     (test-case '(string 5) "a string of length 5")
     (test-case #\a         (format nil "the character a (~A)" (char-name #\a)))
@@ -684,14 +687,19 @@
     (test-case '(digit-char-p ((~ "foo")))
                "the string \"foo\", disregarding case satisfying DIGIT-CHAR-P")
     (test-case '(not (#\a #\b))
-               (format nil "anything but the character a (~A) and the ~
-                            character b (~A)"
+               (format nil "anything but     the character a (~A)
+             and the character b (~A)"
                        (char-name #\a) (char-name #\b)))
     (test-case '(not (character)) "<end of input>")
     (test-case '(! (#\a #\b))
-               (format nil "anything but the character a (~A) and the ~
-                            character b (~A)"
-                       (char-name #\a) (char-name #\b)))))
+               (format nil "anything but     the character a (~A)
+             and the character b (~A)"
+                       (char-name #\a) (char-name #\b)))
+    (test-case '(! ((keyword? (#\_ (alpha-char-p (character))))))
+               (format nil "anything but the character _ (~A)
+              or any character satisfying ALPHA-CHAR-P
+             satisfying ~A"
+                       (char-name #\_) 'keyword?))))
 
 (test describe-terminal.condition
   (signals error (describe-terminal '(and #\a #\b))))
