@@ -142,9 +142,8 @@
 (defrule integer (and (? whitespace)
                       digits
                       (and (? whitespace) (or (& #\,) (! character))))
-  (:destructure (whitespace digits tail)
-    (declare (ignore whitespace tail))
-    (parse-integer digits)))
+  (:function second)
+  (:function parse-integer))
 
 (defrule list-of-integers (+ (or (and integer #\, list-of-integers)
                                  integer))
