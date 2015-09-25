@@ -44,7 +44,11 @@
       (is (string= (esrap-error-text condition) input))
       (when position
         (is (= (esrap-error-position condition) position)))
-      (let ((report (princ-to-string condition))
+      (let ((report (with-standard-io-syntax
+                      (let ((*print-pretty* t))
+                        (with-output-to-string (stream)
+                          (pprint-logical-block (stream nil)
+                            (princ condition stream))))))
             (position 0))
         (mapc (lambda (message)
                 (is (setf position (search message report
