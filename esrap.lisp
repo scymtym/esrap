@@ -1575,17 +1575,6 @@ inspection."
 
 ;;; Characters and strings
 
-(declaim (inline exec-string))
-(defun exec-string (length text position end)
-  (let ((limit (+ length position)))
-    (if (<= limit end)
-        (make-result
-         :production (subseq text position limit)
-         :position limit)
-        (make-failed-parse
-         :expression `(string ,length)
-         :position position))))
-
 (defun eval-character (text position end)
   (if (< position end)
       (make-result
@@ -1598,14 +1587,25 @@ inspection."
 (defun compile-character ()
   #'eval-character)
 
+(declaim (inline exec-string))
+(defun exec-string (expression length text position end)
+  (let ((limit (+ length position)))
+    (if (<= limit end)
+        (make-result
+         :production (subseq text position limit)
+         :position limit)
+        (make-failed-parse
+         :expression expression
+         :position position))))
+
 (defun eval-string (expression text position end)
   (with-expression (expression (string length))
-    (exec-string length text position end)))
+    (exec-string expression length text position end)))
 
 (defun compile-string (expression)
   (with-expression (expression (string length))
     (named-lambda compiled-string (text position end)
-      (exec-string length text position end))))
+      (exec-string expression length text position end))))
 
 ;;; Terminals
 ;;;
