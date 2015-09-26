@@ -1764,86 +1764,93 @@ inspection."
                 (setf last-error result))
               (return result)))))))
 
+(defun check-ordered-choise-prefix (string previous-strings)
+  ;; Check for "FOO" followed by "FOOBAR" -- the latter would never
+  ;; match, but it's an easy mistake to make.
+  (not (some (lambda (previous)
+               (let ((end (min (length previous) (length string))))
+                 (not (or (mismatch string previous :end1 end)
+                          (warn "~@<Prefix ~S before ~S in an ESRAP ~A ~
+                                 expression.~@:>"
+                                previous string 'or)))))
+             previous-strings)))
+
+(defun analyze-ordered-choise (sub-expressions)
+  (let ((type :characters)
+        (canonized '()))
+    (dolist (sub sub-expressions)
+      (when (and (typep sub '(or character string)))
+        (let ((string (string sub)))
+          (when (check-ordered-choise-prefix string canonized)
+            (push string canonized))))
+      (case type
+        (:general)
+        (:strings
+         (unless (typep sub '(or character string))
+           (setf type :general)))
+        (:characters
+         (unless (typep sub '(or character (string 1)))
+           (setf type (if (typep sub 'string) :strings :general))))))
+    (values type (nreverse canonized))))
+
 (defun compile-ordered-choise (expression)
   (with-expression (expression (or &rest subexprs))
-    (let ((type :characters)
-          (canonized nil))
-      (dolist (sub subexprs)
-        (when (typep sub '(or character string))
-          (let* ((this (string sub))
-                 (len (length this)))
-            (unless (some (lambda (seen)
-                            (not
-                             ;; Check for "FOO" followed by "FOOBAR" -- the
-                             ;; latter would never match, but it's an easy mistake to make.
-                             (or (mismatch this seen :end1 (min (length seen) len))
-                                 (warn "Prefix ~S before ~S in an ESRAP OR expression."
-                                       seen this))))
-                        canonized)
-              (push this canonized))))
-        (case type
-          (:general)
-          (:strings
-           (unless (typep sub '(or character string))
-             (setf type :general)))
-          (:characters
-           (unless (typep sub '(or character (string 1)))
-             (if (typep sub 'string)
-                 (setf type :strings)
-                 (setf type :general))))))
+    (multiple-value-bind (type canonized) (analyze-ordered-choise subexprs)
       ;; FIXME: Optimize case-insensitive terminals as well.
       (ecase type
         (:characters
          ;; If every subexpression is a length 1 string, we can represent the whole
          ;; choise with a single string.
-         (let ((choises (apply #'concatenate 'string canonized)))
-           (named-lambda compiled-character-choise (text position end)
-             (let ((c (and (< position end) (find (char text position) choises))))
-               (if c
-                   (make-result :position (+ 1 position)
-                                :production (string c))
-                   (make-failed-parse
-                    :expression expression
-                    :position position))))))
+         (let ((choises (apply #'concatenate 'string canonized))
+               (strings (coerce canonized 'vector)))
+           (declare (type string choises))
+           (named-lambda compiled-character-choise/characters (text position end)
+             (if-let ((index (and (< position end)
+                                  (position (char text position) choises))))
+               (make-result :position (+ 1 position)
+                            :production (aref strings index))
+               (make-failed-parse
+                :expression expression
+                :position position)))))
         (:strings
          ;; If every subexpression is a string, we can represent the whole choise
          ;; with a list of strings.
-         (let ((choises (nreverse canonized)))
-           (named-lambda compiled-character-choise (text position end)
-             (dolist (choise choises
-                      (make-failed-parse
-                       :expression expression
-                       :position position))
-               (let ((len (length choise)))
-                 (when (match-terminal-p choise len text position end t)
-                   (return
-                     (make-result :position (+ len position)
-                                  :production choise))))))))
+         (named-lambda compiled-character-choise/strings (text position end)
+           (dolist (choise canonized
+                    (make-failed-parse
+                     :expression expression
+                     :position position))
+             (let ((len (length choise)))
+               (when (match-terminal-p choise len text position end t)
+                 (return
+                   (make-result :position (+ len position)
+                                :production choise)))))))
         (:general
          ;; In the general case, compile subexpressions and call.
          (let ((functions (mapcar #'compile-expression subexprs)))
-             (named-lambda compiled-ordered-choise (text position end)
-               (let (last-error)
-                 (dolist (fun functions
-                          (make-failed-parse
-                           :expression expression
-                           :position (if (and last-error
-                                              (failed-parse-p last-error))
-                                         (failed-parse-position last-error)
-                                         position)
-                           :detail last-error))
-                   (let ((result (funcall fun text position end)))
-                     (if (error-result-p result)
-                         (when (or (and (not last-error)
-                                        (or (inactive-rule-p result)
-                                            (< position (failed-parse-position result))))
-                                   (and last-error
-                                        (failed-parse-p result)
-                                        (or (inactive-rule-p last-error)
-                                            (< (failed-parse-position last-error)
-                                               (failed-parse-position result)))))
-                           (setf last-error result))
-                         (return result))))))))))))
+           (named-lambda compiled-ordered-choise/general (text position end)
+             (let (last-error)
+               (dolist (fun functions
+                        (make-failed-parse
+                         :expression expression
+                         :position (if (and last-error
+                                            (failed-parse-p last-error))
+                                       (failed-parse-position last-error)
+                                       position)
+                         :detail last-error))
+                 (declare (type function fun))
+                 (let ((result (funcall fun text position end)))
+                   (if (error-result-p result)
+                       (when (or (and (not last-error)
+                                      (or (inactive-rule-p result)
+                                          (< position (failed-parse-position result))))
+                                 (and last-error
+                                      (failed-parse-p result)
+                                      (or (inactive-rule-p last-error)
+                                          (< (failed-parse-position last-error)
+                                             (failed-parse-position result)))))
+                         (setf last-error result))
+                       (return result))))))))))))
 
 ;;; Negations
 
