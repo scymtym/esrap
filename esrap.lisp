@@ -1052,6 +1052,66 @@ symbols."
                  :finally (return-from outer children)))))))
      result)))
 
+;;; Given the "context" result (see RESULT-CONTEXT) CONTEXT, determine
+;;; the set of failed ancestor results (see PARTITION-RESULTS).
+;;; Display the context and all failed ancestor results optionally
+;;; printing the reason for the failure and listing the respective
+;;; expected inputs that would have allowed the failed results to
+;;; succeed.
+(defun error-report (context stream)
+  (let* ((partitioned (partition-results context))
+         (expected    (mapcar (lambda (root)
+                                (let ((reason (result-root-cause root))
+                                      (expected (result-expected-input root)))
+                                  (list root reason (length expected) expected)))
+                              partitioned))
+         (expected    (sort expected #'expression< :key #'first)))
+    ;; Print context (if any), then print each failure result from the
+    ;; PARTITIONED set with its name and the set of expected inputs,
+    ;; if any.
+    (format stream "~@<~@[In context ~/esrap:print-result/:~
+                         ~@:_~@:_~
+                         ~]~
+                         ~{~{~
+                           While parsing ~/esrap:print-result/. ~
+                           ~@[Problem:~@:_~@:_~
+                             ~2@T~A~
+                           ~@:_~@:_~]~
+                           ~[~
+                             ~*~
+                           ~:;~
+                             ~:*Expected:~@:_~@:_~
+                             ~[~
+                               ~2@T~{~/esrap::print-terminal/~}~
+                             ~:;~
+                               ~5@T~{~/esrap::print-terminal/~^~@:_  or ~}~
+                             ~]~
+                           ~]~
+                         ~}~^~@:_~@:_~}~
+                      ~:>"
+            context expected)))
+
+(defvar *result-pprint-dispatch*
+  (let ((dispatch (copy-pprint-dispatch)))
+    (set-pprint-dispatch
+     'string (lambda (stream x)
+               (write x :stream stream :escape t :pretty nil))
+     0 dispatch)
+    (set-pprint-dispatch
+     'character (lambda (stream x)
+                  (if (or (not (graphic-char-p x))
+                          (member x '(#\Space #\Tab #\Newline)))
+                      (write-string (char-name x) stream)
+                      (write (string x) :stream stream :escape t :pretty nil)))
+     0 dispatch)
+    dispatch))
+
+;; For use as ~/esrap::print-result/ in format control.
+(defun print-result (stream result &optional colon? at?)
+  (declare (ignore colon? at?))
+  (let ((*print-pprint-dispatch* *result-pprint-dispatch*))
+    (princ (result-expression result) stream)))
+
 ;;; MAIN INTERFACE
 
 (defun parse (expression text &key (start 0) end junk-allowed raw)
