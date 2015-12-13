@@ -1268,7 +1268,6 @@ inspection."
          ;; Must bind *CURRENT-RULE* before compiling the expression!
          (function (compile-expression expression))
          (rule-not-active (make-inactive-rule :rule symbol)))
-    (declare (type function function))
     (cond ((not condition)
            (named-lambda inactive-rule (text position end)
              (declare (ignore text position end))
@@ -1558,6 +1557,7 @@ inspection."
     (predicate
      (eval-semantic-predicate expression text position end))))
 
+(declaim (ftype (function (*) (values function &optional)) compile-expression))
 (defun compile-expression (expression)
   (expression-case expression
     (character        (compile-character))
@@ -1578,8 +1578,21 @@ inspection."
     (function         (compile-terminal-function expression))
     (predicate        (compile-semantic-predicate expression))))
 
+(defmacro expression-lambda (name args &body body)
+  (unless (length= 3 (parse-ordinary-lambda-list args))
+    (error "~@<Lambda-list must have three required arguments.~@:>"))
+  (let ((name (symbolicate '#:compiled- name)))
+    (destructuring-bind (text-var position-var end-var) args
+      `(named-lambda ,name ,args
+         (declare (type string ,text-var)
+                  (type array-index ,position-var ,end-var))
+         ,@body))))
+
 ;;; Characters and strings
 
+(declaim (ftype (function (string array-index array-index)
+                          (values (or failed-parse result) &optional))
+                eval-character))
 (defun eval-character (text position end)
   (if (< position end)
       (make-result
@@ -1603,13 +1616,18 @@ inspection."
          :expression expression
          :position position))))
 
+(declaim (ftype (function (* string array-index array-index)
+                          (values (or failed-parse result) &optional))
+                eval-string))
 (defun eval-string (expression text position end)
   (with-expression (expression (string length))
+    (declare (type array-index length))
     (exec-string expression length text position end)))
 
 (defun compile-string (expression)
   (with-expression (expression (string length))
-    (named-lambda compiled-string (text position end)
+    (declare (type array-index length))
+    (expression-lambda #:string (text position end)
       (exec-string expression length text position end))))
 
 ;;; Terminals
@@ -1623,10 +1641,13 @@ inspection."
            (string= string text :start2 position :end2 (+ position length))
            (string-equal string text :start2 position :end2 (+ position length)))))
 
+(declaim (ftype (function (string array-index string array-index array-index boolean)
+                          (values (or failed-parse result) &optional))
+                exec-terminal))
 (defun exec-terminal (string length text position end case-sensitive-p)
   (if (match-terminal-p string length text position end case-sensitive-p)
       (make-result
-       :position (+ length position)
+       :position (the array-index (+ length position))
        :production string)
       (make-failed-parse
        :expression string
@@ -1637,11 +1658,13 @@ inspection."
 
 (defun compile-terminal (string case-sensitive-p)
   (let ((length (length string)))
-    (named-lambda compiled-terminal (text position end)
+    (expression-lambda #:terminal (text position end)
       (exec-terminal string length text position end case-sensitive-p))))
 
+(declaim (ftype (function (* function string array-index array-index)
+                          (values (or error-result result) &optional))
+                exec-terminal-function))
 (defun exec-terminal-function (expression function text position end)
-  (declare (type function function))
   ;; The protocol is as follows:
   ;;
   ;; FUNCTION succeeded if one of
@@ -1663,7 +1686,7 @@ inspection."
   ;; POSITION).
   (multiple-value-bind (production end-position result)
       (funcall function text position end)
-    (declare (type (or null non-negative-integer) end-position)
+    (declare (type (or null array-index) end-position)
              (type (or null string condition (eql t)) result))
     (cond
       ((or (result-p production) (error-result-p production))
@@ -1687,7 +1710,7 @@ inspection."
 (defun compile-terminal-function (expression)
   (with-expression (expression (function function))
     (let ((function (ensure-function function)))
-      (named-lambda compiled-terminal-function (text position end)
+      (expression-lambda #:terminal-function (text position end)
         (exec-terminal-function expression function text position end)))))
 
 ;;; Nonterminals
@@ -1702,7 +1725,7 @@ inspection."
 (defun compile-nonterminal (symbol)
   (let ((cell (reference-rule-cell symbol *current-rule*)))
     (declare (type rule-cell cell))
-    (named-lambda compiled-nonterminal (text position end)
+    (expression-lambda #:nonterminal (text position end)
       (funcall (cell-function cell) text position end))))
 
 ;;; Sequences
@@ -1729,12 +1752,13 @@ inspection."
 (defun compile-sequence (expression)
   (with-expression (expression (and &rest subexprs))
     (let ((functions (mapcar #'compile-expression subexprs)))
-      (named-lambda compiled-sequence (text position end)
+      (expression-lambda #:sequence (text position end)
         (let (results)
           (dolist (fun functions
                    (make-result
                     :position position
                     :production (mapcar #'result-production (nreverse results))))
+            (declare (type function fun))
             (let ((result (funcall fun text position end)))
               (if (error-result-p result)
                   (return (make-failed-parse
@@ -1809,7 +1833,7 @@ inspection."
          (let ((choises (apply #'concatenate 'string canonized))
                (strings (coerce canonized 'vector)))
            (declare (type string choises))
-           (named-lambda compiled-character-choise/characters (text position end)
+           (expression-lambda #:character-choise/characters (text position end)
              (if-let ((index (and (< position end)
                                   (position (char text position) choises))))
                (make-result :position (+ 1 position)
@@ -1820,20 +1844,21 @@ inspection."
         (:strings
          ;; If every subexpression is a string, we can represent the whole choise
          ;; with a list of strings.
-         (named-lambda compiled-character-choise/strings (text position end)
+         (expression-lambda #:character-choise/strings (text position end)
            (dolist (choise canonized
                     (make-failed-parse
                      :expression expression
                      :position position))
+             (declare (type string choise))
              (let ((len (length choise)))
                (when (match-terminal-p choise len text position end t)
                  (return
-                   (make-result :position (+ len position)
+                   (make-result :position (the array-index (+ len position))
                                 :production choise)))))))
         (:general
          ;; In the general case, compile subexpressions and call.
          (let ((functions (mapcar #'compile-expression subexprs)))
-           (named-lambda compiled-ordered-choise/general (text position end)
+           (expression-lambda #:ordered-choise/general (text position end)
              (let (last-error)
                (dolist (fun functions
                         (make-failed-parse
@@ -1859,6 +1884,9 @@ inspection."
 
 ;;; Negations
 
+(declaim (ftype (function (function * string array-index array-index)
+                          (values (or failed-parse result) &optional))
+                exec-negation))
 (defun exec-negation (fun expr text position end)
   (if (and (< position end)
            (error-result-p (funcall fun text position end)))
@@ -1890,7 +1918,7 @@ inspection."
 (defun compile-greedy-repetition (expression)
   (with-expression (expression (* subexpr))
     (let ((function (compile-expression subexpr)))
-      (named-lambda compiled-greedy-repetition (text position end)
+      (expression-lambda #:greedy-repetition (text position end)
         (let ((results
                (loop for result = (funcall function text position end)
                      until (error-result-p result)
@@ -1909,7 +1937,7 @@ inspection."
 (defun compile-greedy-positive-repetition (expression)
   (with-expression (expression (+ subexpr))
     (let ((function (compile-expression subexpr)))
-      (named-lambda compiled-greedy-positive-repetition (text position end)
+      (expression-lambda #:greedy-positive-repetition (text position end)
         (let* ((last nil)
                (results
                 (loop for result = (funcall function text position end)
@@ -1937,7 +1965,7 @@ inspection."
 (defun compile-optional (expression)
   (with-expression (expression (? subexpr))
     (let ((function (compile-expression subexpr)))
-      (named-lambda compiled-optional (text position end)
+      (expression-lambda #:optional (text position end)
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
               (make-result :position position)
@@ -1960,7 +1988,7 @@ inspection."
 (defun compile-followed-by (expression)
   (with-expression (expression (& subexpr))
     (let ((function (compile-expression subexpr)))
-      (named-lambda compiled-followed-by (text position end)
+      (expression-lambda #:followed-by (text position end)
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
               (make-failed-parse
@@ -1986,7 +2014,7 @@ inspection."
 (defun compile-not-followed-by (expression)
   (with-expression (expression (! subexpr))
     (let ((function (compile-expression subexpr)))
-      (named-lambda compiled-not-followed-by (text position end)
+      (expression-lambda #:not-followed-by (text position end)
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
               (make-result
@@ -2022,7 +2050,7 @@ inspection."
             (if (eq (symbol-package predicate) (load-time-value (find-package :cl)))
                 (symbol-function predicate)
                 (compile nil `(lambda (x) (,predicate x))))))
-      (named-lambda compiled-semantic-predicate (text position end)
+      (expression-lambda #:semantic-predicate (text position end)
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
               (make-failed-parse
@@ -2038,6 +2066,9 @@ inspection."
 
 ;;; Character ranges
 
+(declaim (ftype (function (* * string array-index array-index)
+                          (values (or failed-parse result) &optional))
+                exec-character-ranges))
 (defun exec-character-ranges (expression ranges text position end)
   (flet ((oops ()
            (make-failed-parse
@@ -2063,7 +2094,7 @@ inspection."
 
 (defun compile-character-ranges (expression)
   (with-expression (expression (character-ranges &rest ranges))
-    (named-lambda compiled-character-ranges (text position end)
+    (expression-lambda #:character-ranges (text position end)
       (exec-character-ranges expression ranges text position end))))
 
 (defvar *indentation-hint-table* nil)
