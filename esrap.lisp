@@ -1268,54 +1268,59 @@ inspection."
          ;; Must bind *CURRENT-RULE* before compiling the expression!
          (function (compile-expression expression))
          (rule-not-active (make-inactive-rule :rule symbol)))
+    (declare (type function function))
     (cond ((not condition)
            (named-lambda inactive-rule (text position end)
              (declare (ignore text position end))
              rule-not-active))
           (transform
-           (flet ((exec-rule/transform (text position end)
-                    (let ((result (funcall function text position end)))
-                      (if (error-result-p result)
-                          (make-failed-parse
-                           :expression symbol
-                           :position (if (failed-parse-p result)
-                                         (failed-parse-position result)
-                                         position)
-                           :detail result)
-                          (if around
-                              (make-result
-                               :position (result-position result)
-                               :production (flet ((call-rule ()
-                                                    (funcall transform
-                                                             (result-production result)
-                                                             position
-                                                             (result-position result))))
-                                             (funcall around position (result-position result) #'call-rule)))
-                              (make-result
-                               :position (result-position result)
-                               :production (funcall transform
-                                                    (result-production result)
-                                                    position
-                                                    (result-position result))))))))
-             (if (eq t condition)
-                 (named-lambda rule/transform (text position end)
-                   (with-cached-result (symbol position text)
-                     (exec-rule/transform text position end)))
-                 (named-lambda condition-rule/transform (text position end)
-                   (with-cached-result (symbol position text)
-                     (if (funcall condition)
-                         (exec-rule/transform text position end)
-                         rule-not-active))))))
+           (locally (declare (type function transform))
+             (flet ((exec-rule/transform (text position end)
+                      (let ((result (funcall function text position end)))
+                        (if (error-result-p result)
+                            (make-failed-parse
+                             :expression symbol
+                             :position (if (failed-parse-p result)
+                                           (failed-parse-position result)
+                                           position)
+                             :detail result)
+                            (if around
+                                (locally (declare (type function around))
+                                  (make-result
+                                   :position (result-position result)
+                                   :production (flet ((call-rule ()
+                                                        (funcall transform
+                                                                 (result-production result)
+                                                                 position
+                                                                 (result-position result))))
+                                                 (funcall around position (result-position result) #'call-rule))))
+                                (make-result
+                                 :position (result-position result)
+                                 :production (funcall transform
+                                                      (result-production result)
+                                                      position
+                                                      (result-position result))))))))
+               (if (eq t condition)
+                   (named-lambda rule/transform (text position end)
+                     (with-cached-result (symbol position text)
+                       (exec-rule/transform text position end)))
+                   (locally (declare (type function condition))
+                     (named-lambda condition-rule/transform (text position end)
+                       (with-cached-result (symbol position text)
+                         (if (funcall condition)
+                             (exec-rule/transform text position end)
+                             rule-not-active))))))))
           (t
            (if (eq t condition)
                (named-lambda rule (text position end)
                  (with-cached-result (symbol position text)
                    (funcall function text position end)))
-               (named-lambda conditional-rule (text position end)
-                 (with-cached-result (symbol position text)
-                   (if (funcall condition)
-                       (funcall function text position end)
-                       rule-not-active))))))))
+               (locally (declare (type function condition))
+                 (named-lambda conditional-rule (text position end)
+                   (with-cached-result (symbol position text)
+                     (if (funcall condition)
+                         (funcall function text position end)
+                         rule-not-active)))))))))
 
 ;;; EXPRESSION COMPILER & EVALUATOR
 
