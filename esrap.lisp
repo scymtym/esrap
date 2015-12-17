@@ -414,10 +414,13 @@ but clause heads designate kinds of expressions instead of types. See
   (clrhash *rules*)
   nil)
 
-(defstruct (rule-cell (:constructor
-                       make-rule-cell
-                       (symbol &aux (%info (cons (undefined-rule-function symbol) nil))))
-                      (:conc-name cell-))
+(defstruct (rule-cell
+             (:conc-name cell-)
+             (:constructor
+              make-rule-cell
+              (symbol &aux (%info (cons (undefined-rule-function symbol) nil))))
+             (:copier nil)
+             (:predicate nil))
   ;; A cons
   ;;
   ;;   (FUNCTION . RULE)
@@ -599,7 +602,7 @@ symbols."
   (setf (gethash (cons symbol position) cache) result))
 
 ;; In case of left recursion, this stores
-(defstruct head
+(defstruct (head (:predicate nil) (:copier nil))
   ;; the rule at which the left recursion started
   (rule (required-argument :rule) :type symbol)
   ;; the set of involved rules
