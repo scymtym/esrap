@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<!-- Created by GNU Texinfo 5.2, http://www.gnu.org/software/texinfo/ -->
+<!-- Created by GNU Texinfo 6.0, http://www.gnu.org/software/texinfo/ -->
 <head>
 <title>Esrap</title>
 
@@ -13,19 +13,19 @@
 <link href="#SEC_Contents" rel="contents" title="Table of Contents">
 <style type="text/css">
 <!--
-  
+
 
 a.summary-letter {text-decoration: none}
+blockquote.indentedblock {margin-right: 0em}
+blockquote.smallindentedblock {margin-right: 0em; font-size: smaller}
 blockquote.smallquotation {font-size: smaller}
 div.display {margin-left: 3.2em}
 div.example {margin-left: 3.2em}
-div.indentedblock {margin-left: 3.2em}
 div.lisp {margin-left: 3.2em}
 div.smalldisplay {margin-left: 3.2em}
 div.smallexample {margin-left: 3.2em}
-div.smallindentedblock {margin-left: 3.2em; font-size: smaller}
 div.smalllisp {margin-left: 3.2em}
-kbd {font-style:oblique}
+kbd {font-style: oblique}
 pre.display {font-family: inherit}
 pre.format {font-family: inherit}
 pre.menu-comment {font-family: serif}
@@ -34,10 +34,10 @@ pre.smalldisplay {font-family: inherit; font-size: smaller}
 pre.smallexample {font-size: smaller}
 pre.smallformat {font-family: inherit; font-size: smaller}
 pre.smalllisp {font-size: smaller}
-span.nocodebreak {white-space:nowrap}
-span.nolinebreak {white-space:nowrap}
-span.roman {font-family:serif; font-weight:normal}
-span.sansserif {font-family:sans-serif; font-weight:normal}
+span.nocodebreak {white-space: nowrap}
+span.nolinebreak {white-space: nowrap}
+span.roman {font-family: serif; font-weight: normal}
+span.sansserif {font-family: sans-serif; font-weight: normal}
 ul.no-bullet {list-style: none}
 .node { visibility:hidden; height: 0px; }
   .menu { visibility:hidden; height: 0px; }
@@ -59,7 +59,7 @@ ul.no-bullet {list-style: none}
 
 </head>
 
-<body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
+<body lang="en">
 <h1 class="settitle" align="center">Esrap</h1>
 
 
@@ -296,8 +296,8 @@ the entire remaining input has been consumed.
 </li><li> <code>function-name</code> returns <code>nil</code> as its third value (or returns
 only two values) and an integer <code>&gt; position</code> as its second value
 indicating the position up to which <code>text</code> has been consumed.
-</li><li> <code>function-name</code> returns a value of type <code>result</code> as its first
-value.
+</li><li> <code>function-name</code> returns a value of type <code>successful-parse</code> as
+its first value.
 </li></ol>
 <p>When a function terminal succeeds, the first return value is an
 arbitrary production.
@@ -663,6 +663,13 @@ left recursion cycle consists.
 </p>
 <p>Note: This error is only signaled if <code>*on-left-recursion*</code> is bound
 to <code>:error</code>.
+</p></dd></dl>
+<a name="Condition-esrap_002dparse_002derror"></a><dl>
+<dt><a name="index-esrap_002dparse_002derror"></a>Condition: <strong>esrap-parse-error</strong></dt>
+<dd><a name="index-esrap_002dparse_002derror-1"></a>
+<p>Class precedence list: <code>esrap-parse-error, esrap-error, parse-error, error, serious-condition, condition, t</code>
+</p>
+<p>This error is signaled when a parse attempt fails in a way that .
 </p></dd></dl>
 
 <a name="Condition-undefined_002drule_002derror"></a><dl>
