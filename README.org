@@ -35,7 +35,7 @@
 
     #+begin_example
     Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-    Copyright (c) 2012-2015 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+    Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 
     Permission is hereby granted, free of charge, to any person
     obtaining a copy of this software and associated documentation
@@ -120,7 +120,7 @@
   #+END_SRC
 
   Rules can transform their matches:
-  #+begin_src lisp :exports code :session "doc"
+  #+begin_src lisp :results silent :exports code :session "doc"
     (esrap:add-rule
      'decimal
      (make-instance
