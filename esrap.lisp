@@ -861,8 +861,10 @@ symbols."
                                       (result-position previous))
                   current)))
 
+(declaim (ftype (function (function result &key (:augment-inactive-rules t)) *)
+                map-results))
 (declaim (ftype (function (function result) *)
-                map-results map-max-results map-max-leaf-results))
+                map-max-results map-max-leaf-results))
 
 ;;; Apply FUNCTION to RESULT and potentially all its ancestor results
 ;;; (by providing a RECURSE function to FUNCTION) and return whatever
