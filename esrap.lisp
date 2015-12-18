@@ -2256,7 +2256,7 @@ inspection."
 (defun compile-negation (expression)
   (with-expression (expression (not subexpr))
     (let ((sub (compile-expression subexpr)))
-      (named-lambda compiled-negation (text position end)
+      (expression-lambda #:negation (text position end)
         (exec-negation sub expression text position end)))))
 
 ;;; Greedy repetitions
