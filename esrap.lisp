@@ -633,8 +633,8 @@ symbols."
       ;; Do not evaluate any rule that is not involved in this left
       ;; recursion.
       ((and (not result) (not (or (eq rule (head-rule head))
-                             (member rule (head-involved-set head)))))
-       (make-failed-parse position position nil))
+                                  (member rule (head-involved-set head)))))
+       (make-failed-parse nil position nil))
       ;; Allow involved rules to be evaluated, but only once, during a
       ;; seed-growing iteration. Subsequent requests just return what
       ;; is stored in the cache.
