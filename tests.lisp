@@ -199,7 +199,7 @@
   ;; Handling of :raw (by the compiler-macro).
   (is (equal '(123 nil t)
              (multiple-value-list (parse 'integer "123" :raw nil))))
-  (is (typep (parse 'integer "123" :raw t) 'esrap::result))
+  (is (typep (parse 'integer "123" :raw t) 'esrap::successful-parse))
   (is (typep (parse 'integer "12a" :raw t) 'esrap::error-result)))
 
 (defrule single-token/bounds.1 (+ (not-space character))
