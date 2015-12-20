@@ -360,13 +360,13 @@
       (parse 'left-recursion.direct "l"))
     (handler-case (parse 'left-recursion.direct "l")
       (left-recursion (condition)
-        (is (string= (esrap-error-text condition) "l"))
-        (is (= (esrap-error-position condition) 0))
-        (is (eq (left-recursion-nonterminal condition)
-                'left-recursion.direct))
-        (is (equal (left-recursion-path condition)
-                   '(left-recursion.direct
-                     left-recursion.direct)))))))
+        (is (string= "l" (esrap-error-text condition)))
+        (is (= 0 (esrap-error-position condition)))
+        (is (eq 'left-recursion.direct
+                (left-recursion-nonterminal condition)))
+        (is (equal '(left-recursion.direct
+                     left-recursion.direct)
+                   (left-recursion-path condition)))))))
 
 (defrule left-recursion.indirect.1 left-recursion.indirect.2)
 
@@ -388,14 +388,14 @@
       (parse 'left-recursion.indirect.1 "l"))
     (handler-case (parse 'left-recursion.indirect.1 "l")
       (left-recursion (condition)
-        (is (string= (esrap-error-text condition) "l"))
-        (is (= (esrap-error-position condition) 0))
-        (is (eq (left-recursion-nonterminal condition)
-                'left-recursion.indirect.1))
-        (is (equal (left-recursion-path condition)
-                   '(left-recursion.indirect.1
+        (is (string= "l" (esrap-error-text condition)))
+        (is (= 0 (esrap-error-position condition)))
+        (is (eq 'left-recursion.indirect.1
+                (left-recursion-nonterminal condition)))
+        (is (equal '(left-recursion.indirect.1
                      left-recursion.indirect.2
-                     left-recursion.indirect.1)))))))
+                     left-recursion.indirect.1)
+                   (left-recursion-path condition)))))))
 
 ;;; Test conditions
 
@@ -640,7 +640,7 @@
 
 (test multiple-transforms.1
   "Apply composed transforms to parse result."
-  (is (eql (parse 'multiple-transforms.1 "a1c") 1)))
+  (is (eql 1 (parse 'multiple-transforms.1 "a1c"))))
 
 (test multiple-transforms.invalid
   "Test DEFRULE's behavior for invalid transforms."
@@ -906,8 +906,8 @@
   "Left associate grammar from example-left-recursion.lisp."
   ;; This grammar should work without left recursion.
   (let ((*on-left-recursion* :error))
-    (is (equal (parse 'left-recursive-grammars:la-expr "1*2+3*4+5")
-               '(+ (* 1 2) (+ (* 3 4) 5))))))
+    (is (equal '(+ (* 1 2) (+ (* 3 4) 5))
+               (parse 'left-recursive-grammars:la-expr "1*2+3*4+5")))))
 
 (test example-left-recursion.right-associative
   "Right associate grammar from example-left-recursion.lisp."
@@ -917,8 +917,8 @@
     (signals left-recursion
       (parse 'left-recursive-grammars:ra-expr "1*2+3*4+5")))
 
-  (is (equal (parse 'left-recursive-grammars:ra-expr "1*2+3*4+5")
-             '(+ (+ (* 1 2) (* 3 4)) 5))))
+  (is (equal '(+ (+ (* 1 2) (* 3 4)) 5)
+             (parse 'left-recursive-grammars:ra-expr "1*2+3*4+5"))))
 
 (test example-left-recursion.warth.smoke
   "Warth's Java expression example from example-left-recursion.lisp."
