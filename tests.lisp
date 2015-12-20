@@ -561,19 +561,13 @@
 
 (test-both-modes parse.negation
   "Test negation in rules."
-  (let* ((text "FooBazBar")
-         (t1c (text (parse '(+ (not "Baz")) text :junk-allowed t)))
-         (t1e (text (parse (identity '(+ (not "Baz"))) text :junk-allowed t)))
-         (t2c (text (parse '(+ (not "Bar")) text :junk-allowed t)))
-         (t2e (text (parse (identity '(+ (not "Bar"))) text :junk-allowed t)))
-         (t3c (text (parse '(+ (not (or "Bar" "Baz"))) text :junk-allowed t)))
-         (t3e (text (parse (identity '(+ (not (or "Bar" "Baz")))) text :junk-allowed t))))
-    (is (equal "Foo" t1c))
-    (is (equal "Foo" t1e))
-    (is (equal "FooBaz" t2c))
-    (is (equal "FooBaz" t2e))
-    (is (equal "Foo" t3c))
-    (is (equal "Foo" t3e))))
+  (macrolet ((test-case (expected expression input)
+               `(is (equal ,expected (text (parse ,expression ,input
+                                                  :junk-allowed t))))))
+    (test-case "F"      '(not "Baz")                "FooBazBar")
+    (test-case "Foo"    '(+ (not "Baz"))            "FooBazBar")
+    (test-case "FooBaz" '(+ (not "Bar"))            "FooBazBar")
+    (test-case "Foo"    '(+ (not (or "Bar" "Baz"))) "FooBazBar")))
 
 ;;; Test around
 
@@ -637,12 +631,16 @@
 (defrule character-range (character-ranges (#\a #\b) #\-))
 
 (test-both-modes character-range
-  (is (equal '(#\a #\b) (parse '(* (character-ranges (#\a #\z) #\-)) "ab" :junk-allowed t)))
-  (is (equal '(#\a #\b) (parse '(* (character-ranges (#\a #\z) #\-)) "ab1" :junk-allowed t)))
-  (is (equal '(#\a #\b #\-) (parse '(* (character-ranges (#\a #\z) #\-)) "ab-" :junk-allowed t)))
-  (is (not (parse '(* (character-ranges (#\a #\z) #\-)) "AB-" :junk-allowed t)))
-  (is (not (parse '(* (character-ranges (#\a #\z) #\-)) "ZY-" :junk-allowed t)))
-  (is (equal '(#\a #\b #\-) (parse '(* character-range) "ab-cd" :junk-allowed t))))
+  (macrolet ((test-case (expected expression input)
+               `(is (equal ,expected (parse ,expression ,input
+                                            :junk-allowed t)))))
+    (test-case #\a            '(character-ranges (#\a #\z) #\-)     "a")
+    (test-case '(#\a #\b)     '(* (character-ranges (#\a #\z) #\-)) "ab")
+    (test-case '(#\a #\b)     '(* (character-ranges (#\a #\z) #\-)) "ab1")
+    (test-case '(#\a #\b #\-) '(* (character-ranges (#\a #\z) #\-)) "ab-")
+    (test-case nil            '(* (character-ranges (#\a #\z) #\-)) "AB-")
+    (test-case nil            '(* (character-ranges (#\a #\z) #\-)) "ZY-")
+    (test-case '(#\a #\b #\-) '(* character-range)                  "ab-cd")))
 
 ;;; Test multiple transforms
 
