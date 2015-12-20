@@ -80,6 +80,14 @@
 
 (in-package :esrap)
 
+;;; Types
+
+(deftype input-position ()
+  'array-index)
+
+(deftype input-length ()
+  'array-length)
+
 ;;; Conditions
 
 (define-condition invalid-expression-error (error)
@@ -737,7 +745,7 @@ symbols."
   ;; * or function returning that position when called with the
   ;;   FAILED-PARSE instance and optionally a minimum position as its
   ;;   arguments.
-  (%position  #'max-of-result-positions  :type (or function array-index))
+  (%position  #'max-of-result-positions  :type (or function input-position))
   ;; One of the following things:
   ;; * nested error, closer to actual failure site
   ;; * a (possibly empty) list thereof
@@ -746,7 +754,7 @@ symbols."
   (detail     nil                        :type (or result list string condition) :read-only t))
 
 ;; The following function is only called from slow paths.
-(declaim (ftype (function (result) (values non-negative-integer &optional))
+(declaim (ftype (function (result) (values input-position &optional))
                 result-position))
 (defun result-position (result)
   (let ((position (result-%position result)))
@@ -828,8 +836,8 @@ symbols."
 (defun result-nonterminal-p (result)
   (typep (result-expression result) 'nonterminal))
 
-(declaim (ftype (function (list &optional non-negative-integer)
-                          (values non-negative-integer &optional))
+(declaim (ftype (function (list &optional input-position)
+                          (values input-position &optional))
                 max-of-result-positions))
 (defun max-of-result-positions (results &optional (start 0))
   (reduce #'max results :key #'result-position :initial-value start))
@@ -1968,12 +1976,13 @@ inspection."
     (destructuring-bind (text-var position-var end-var) args
       `(named-lambda ,name ,args
          (declare (type string ,text-var)
-                  (type array-index ,position-var ,end-var))
+                  (type input-position ,position-var)
+                  (type input-length ,end-var))
          ,@body))))
 
 ;;; Characters and strings
 
-(declaim (ftype (function (string array-index array-index)
+(declaim (ftype (function (string input-position input-length)
                           (values result &optional))
                 eval-character))
 (defun eval-character (text position end)
@@ -1993,17 +2002,17 @@ inspection."
          expression limit nil (subseq text position limit))
         (make-failed-parse expression end nil))))
 
-(declaim (ftype (function (* string array-index array-index)
+(declaim (ftype (function (* string input-position input-length)
                           (values result &optional))
                 eval-string))
 (defun eval-string (expression text position end)
   (with-expression (expression (string length))
-    (declare (type array-index length))
+    (declare (type input-position length))
     (exec-string expression length text position end)))
 
 (defun compile-string (expression)
   (with-expression (expression (string length))
-    (declare (type array-index length))
+    (declare (type input-position length))
     (expression-lambda #:string (text position end)
       (exec-string expression length text position end))))
 
@@ -2018,13 +2027,14 @@ inspection."
            (string= string text :start2 position :end2 (+ position length))
            (string-equal string text :start2 position :end2 (+ position length)))))
 
-(declaim (ftype (function (string array-index string array-index array-index boolean)
+(declaim (ftype (function (string input-position
+                           string input-position input-length boolean)
                           (values result &optional))
                 exec-terminal))
 (defun exec-terminal (string length text position end case-sensitive-p)
   (if (match-terminal-p string length text position end case-sensitive-p)
       (make-successful-parse
-       string (the array-index (+ length position)) nil string)
+       string (the input-position (+ length position)) nil string)
       (make-failed-parse string position nil)))
 
 (defun eval-terminal (string text position end case-sensitive-p)
@@ -2035,7 +2045,7 @@ inspection."
     (expression-lambda #:terminal (text position end)
       (exec-terminal string length text position end case-sensitive-p))))
 
-(declaim (ftype (function (* function string array-index array-index)
+(declaim (ftype (function (* function string input-position input-length)
                           (values result &optional))
                 exec-terminal-function))
 (defun exec-terminal-function (expression function text position end)
@@ -2060,7 +2070,7 @@ inspection."
   ;; POSITION).
   (multiple-value-bind (production end-position result)
       (funcall function text position end)
-    (declare (type (or null array-index) end-position)
+    (declare (type (or null input-position) end-position)
              (type (or null string condition (eql t)) result))
     (cond
       ((result-p production)
@@ -2216,7 +2226,7 @@ inspection."
                  (when (match-terminal-p string len text position end t)
                    (return
                      (%make-successful-parse
-                      expression (the array-index (+ len position))
+                      expression (the input-position (+ len position))
                       nil choise))))))))
         (:general
          ;; In the general case, compile subexpressions and call.
@@ -2235,7 +2245,7 @@ inspection."
 
 ;;; Negations
 
-(declaim (ftype (function (function * string array-index array-index)
+(declaim (ftype (function (function * string input-position input-position)
                           (values result &optional))
                 exec-negation))
 (defun exec-negation (fun expr text position end)
@@ -2389,7 +2399,7 @@ inspection."
 
 ;;; Character ranges
 
-(declaim (ftype (function (* * string array-index array-index)
+(declaim (ftype (function (* * string input-position input-length)
                           (values result &optional))
                 exec-character-ranges))
 (defun exec-character-ranges (expression ranges text position end)
