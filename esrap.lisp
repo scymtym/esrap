@@ -1267,7 +1267,7 @@ happen when :raw t."
     (junk-allowed
      (values nil start))
     ;; Did not parse anything and junk is not allowed.
-    ((error-result-p result)
+    (t
      (esrap-parse-error text result))))
 
 (defmacro defrule (&whole form symbol expression &body options)
