@@ -324,6 +324,10 @@ See @file{example-left-recursion.lisp} for examples.
 
 @include include/var-esrap-star-on-left-recursion-star.texinfo
 
+@include include/fun-esrap-esrap-error-position.texinfo
+@include include/fun-esrap-esrap-parse-error-result.texinfo
+@include include/fun-esrap-esrap-parse-error-context.texinfo
+
 @include include/condition-esrap-esrap-error.texinfo
 @include include/condition-esrap-left-recursion.texinfo
 @include include/condition-esrap-esrap-parse-error.texinfo

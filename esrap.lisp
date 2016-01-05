@@ -1,7 +1,7 @@
 ;;;; ESRAP -- a packrat parser for Common Lisp
 ;;;;
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2015 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Homepage and documentation:
 ;;;;
@@ -58,6 +58,7 @@
    #:esrap-error-text
    #:esrap-parse-error
    #:esrap-parse-error-result
+   #:esrap-parse-error-context
    #:expression-start-terminals
    #:find-rule
    #:invalid-expression-error
@@ -89,6 +90,21 @@
   'array-length)
 
 ;;; Conditions
+
+(defgeneric esrap-error-position (condition)
+  (:documentation
+   "Return the input position at which the parse failure represented
+by CONDITION occurred."))
+
+(defgeneric esrap-parse-error-result (condition)
+  (:documentation
+   "Return the result associated to the parse error represented by
+CONDITION."))
+
+(defgeneric esrap-parse-error-context (condition)
+  (:documentation
+   "Return the context result associated to the parse error
+represented by CONDITION."))
 
 (define-condition invalid-expression-error (error)
   ((expression :initarg :expression :reader invalid-expression-error-expression))
@@ -177,10 +193,10 @@ the error occurred."))
    "This error is signaled when a parse attempt fails in a way that ."))
 
 (defmethod esrap-error-position ((condition esrap-parse-error))
-  (result-position (esrap-parse-error-%context condition)))
+  (result-position (esrap-parse-error-context condition)))
 
-(defmethod esrap-parse-error-%context :around ((condition esrap-parse-error))
-  (or (call-next-method)
+(defmethod esrap-parse-error-context ((condition esrap-parse-error))
+  (or (esrap-parse-error-%context condition)
       (setf (esrap-parse-error-%context condition)
             (let ((result (esrap-parse-error-result condition)))
               (or (result-context result) result)))))
@@ -192,10 +208,10 @@ the error occurred."))
     (*print-escape*
      (print-unreadable-object (object stream :type t :identity t)
        (format stream "~@[~S~]~@[ @~D~]"
-               (esrap-parse-error-%context object)
+               (esrap-parse-error-context object)
                (esrap-error-position object))))
     (t
-     (error-report (esrap-parse-error-%context object) stream))))
+     (error-report (esrap-parse-error-context object) stream))))
 
 (declaim (ftype (function (string result) (values &optional nil))
                 esrap-parse-error))
