@@ -13,7 +13,7 @@
 <link href="#SEC_Contents" rel="contents" title="Table of Contents">
 <style type="text/css">
 <!--
-
+  
 
 a.summary-letter {text-decoration: none}
 blockquote.indentedblock {margin-right: 0em}
@@ -639,6 +639,25 @@ left recursive rule. Otherwise the rule is processed.
 </p>
 <p>Note: when processing left recursive rules, linear-time guarantees
 generally no longer hold.
+</p></dd></dl>
+
+<a name="Generic_002dFunction-esrap_002derror_002dposition"></a><dl>
+<dt><a name="index-esrap_002derror_002dposition"></a>Generic Function: <strong>esrap-error-position</strong> <em>condition</em></dt>
+<dd><a name="index-esrap_002derror_002dposition-1"></a>
+<p>Return the input position at which the parse failure represented
+by <code>condition</code> occurred.
+</p></dd></dl>
+<a name="Generic_002dFunction-esrap_002dparse_002derror_002dresult"></a><dl>
+<dt><a name="index-esrap_002dparse_002derror_002dresult"></a>Generic Function: <strong>esrap-parse-error-result</strong> <em>condition</em></dt>
+<dd><a name="index-esrap_002dparse_002derror_002dresult-1"></a>
+<p>Return the result associated to the parse error represented by
+<code>condition</code>.
+</p></dd></dl>
+<a name="Generic_002dFunction-esrap_002dparse_002derror_002dcontext"></a><dl>
+<dt><a name="index-esrap_002dparse_002derror_002dcontext"></a>Generic Function: <strong>esrap-parse-error-context</strong> <em>condition</em></dt>
+<dd><a name="index-esrap_002dparse_002derror_002dcontext-1"></a>
+<p>Return the context result associated to the parse error
+represented by <code>condition</code>.
 </p></dd></dl>
 
 <a name="Condition-esrap_002derror"></a><dl>
