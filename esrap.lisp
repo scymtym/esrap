@@ -1124,24 +1124,25 @@ symbols."
     ;; if any.
     (format stream "~@<~@[In context ~/esrap:print-result/:~
                          ~@:_~@:_~
+                       ~]~
+                       ~{~{~
+                         While parsing ~/esrap:print-result/. ~
+                         ~@[Problem:~@:_~@:_~
+                           ~2@T~A~
+                           ~[~:;~@:_~@:_~]~:*~
                          ~]~
-                         ~{~{~
-                           While parsing ~/esrap:print-result/. ~
-                           ~@[Problem:~@:_~@:_~
-                             ~2@T~A~
-                           ~@:_~@:_~]~
+                         ~[~
+                           ~*~
+                         ~:;~
+                           ~:*Expected:~@:_~@:_~
                            ~[~
-                             ~*~
+                             ~2@T~{~/esrap::print-terminal/~}~
                            ~:;~
-                             ~:*Expected:~@:_~@:_~
-                             ~[~
-                               ~2@T~{~/esrap::print-terminal/~}~
-                             ~:;~
-                               ~5@T~{~/esrap::print-terminal/~^~@:_  or ~}~
-                             ~]~
+                             ~5@T~{~/esrap::print-terminal/~^~@:_  or ~}~
                            ~]~
-                         ~}~^~@:_~@:_~}~
-                      ~:>"
+                         ~]~
+                       ~}~^~@:_~@:_~}~
+                    ~:>"
             context expected)))
 
 (defvar *result-pprint-dispatch*
