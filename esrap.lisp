@@ -1917,7 +1917,7 @@ inspection."
             (let ((sub-expression (second terminal)))
               (pprint-logical-block (stream sub-expression)
                 (rec/sub-expression
-                 sub-expression "~[~;~;~:; ~4:T~]" "~@:_ or ")
+                 sub-expression "~[~;~:; ~4:T~]" "~@:_ or ")
                 (output "~[~; ~:;~@:_~]satisfying ~A"
                         (length sub-expression) (first terminal)))))
            (t

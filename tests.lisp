@@ -736,6 +736,15 @@
                "any character satisfying DIGIT-CHAR-P")
     (test-case '(digit-char-p ((~ "foo")))
                "the string \"foo\", disregarding case satisfying DIGIT-CHAR-P")
+    (test-case '(digit-char-p ("aa" "bb"))
+               "    the string \"aa\"
+ or the string \"bb\"
+satisfying DIGIT-CHAR-P")
+    (test-case '(digit-char-p ("aa" "bb" "cc"))
+               "    the string \"aa\"
+ or the string \"bb\"
+ or the string \"cc\"
+satisfying DIGIT-CHAR-P")
     (test-case '(not (#\a #\b))
                (format nil "anything but     the character a (~A)
              and the character b (~A)"
@@ -746,7 +755,7 @@
              and the character b (~A)"
                        (char-name #\a) (char-name #\b)))
     (test-case '(! ((keyword? (#\_ (alpha-char-p (character))))))
-               (format nil "anything but the character _ (~A)
+               (format nil "anything but     the character _ (~A)
               or any character satisfying ALPHA-CHAR-P
              satisfying ~A"
                        (char-name #\_) 'keyword?))))
