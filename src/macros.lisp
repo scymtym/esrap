@@ -146,3 +146,90 @@ for use with IGNORE."
                  (list
                   (apply #'check-simple-spec spec)))))
       (check-spec spec))))
+
+(defun parse-defrule-options (options form)
+  (let ((transform nil)
+        (around nil)
+        (guard t)
+        (condition t)
+        (guard-seen nil))
+    (dolist (option options)
+      (flet ((set-transform (trans/bounds trans/no-bounds
+                                          &optional use-start-end? start-end-symbols)
+               (setf transform
+                     (cond
+                       ((not transform)
+                        trans/bounds)
+                       (use-start-end?
+                        (error "~@<Trying to use ~{~S~^, ~} in composed ~
+                                ~S transformation.~@:>"
+                               start-end-symbols use-start-end?))
+                       (t
+                        `(compose ,trans/no-bounds ,transform)))))
+             (set-guard (expr test)
+               (if guard-seen
+                   (error "~@<Multiple guards in ~S:~@:_~2@T~S~@:>"
+                          'defrule form)
+                   (setf guard-seen t
+                         guard expr
+                         condition test))))
+        (destructuring-ecase option
+          ((:when expr &rest rest)
+           (when rest
+             (error "~@<Multiple expressions in a ~S:~@:_~2@T~S~@:>"
+                    :when form))
+           (set-guard expr (cond
+                             ((not (constantp expr)) `(lambda () ,expr))
+                             ((eval expr) t))))
+          ((:constant value)
+           (set-transform `(constantly ,value) `(constantly ,value)))
+          ((:text value)
+           (when value
+             (set-transform '#'text/bounds '#'text)))
+          ((:identity value)
+           (when value
+             (set-transform '#'identity/bounds '#'identity)))
+          ((:lambda lambda-list &body forms)
+           (multiple-value-bind (lambda-list* start end ignore)
+               (parse-lambda-list-maybe-containing-&bounds lambda-list)
+             (declare (type list ignore))
+             (check-lambda-list lambda-list*
+                                '(or (:required 1) (:optional 1))
+                                :report-lambda-list lambda-list)
+             (apply #'set-transform
+                    `(lambda (,@lambda-list* ,start ,end)
+                       (declare (ignore ,@ignore))
+                       ,@forms)
+                    `(lambda ,lambda-list* ,@forms)
+                    (unless (length= 2 ignore)
+                      (list option
+                            (set-difference (list start end) ignore))))))
+          ((:function designator)
+           (set-transform `(lambda/bounds
+                            (resolve-function ',designator '(production) ',option))
+                          `(resolve-function ',designator '(production) ',option)))
+          ((:destructure lambda-list &body forms)
+           (multiple-value-bind (lambda-list start end ignore)
+               (parse-lambda-list-maybe-containing-&bounds lambda-list)
+             (set-transform
+              (with-gensyms (production)
+                `(lambda (,production ,start ,end)
+                   (declare (ignore ,@ignore))
+                   (destructuring-bind ,lambda-list ,production
+                     ,@forms)))
+              (with-gensyms (production)
+                `(lambda (,production)
+                   (destructuring-bind ,lambda-list ,production
+                     ,@forms))))))
+          ((:around lambda-list &body forms)
+           (multiple-value-bind (lambda-list* start end ignore)
+               (parse-lambda-list-maybe-containing-&bounds lambda-list)
+             (check-lambda-list
+              lambda-list* '() :report-lambda-list lambda-list)
+             (setf around `(lambda (,start ,end transform)
+                             (declare (ignore ,@ignore)
+                                      (function transform))
+                             (flet ((call-transform ()
+                                      (funcall transform)))
+                               ,@forms))))))))
+    (values transform around guard condition)))
