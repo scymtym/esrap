@@ -54,7 +54,10 @@
             (position 0))
         (mapc (lambda (message)
                 (is (setf position (search message report
-                                           :start2 position))))
+                                           :start2 position))
+                    "~@<The string ~S does not occur in ~S after ~
+                     position ~D.~@:>"
+                    message report position))
               messages)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
