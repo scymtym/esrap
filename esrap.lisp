@@ -901,7 +901,7 @@ symbols."
 ;;; the traversal into children of RESULT and returns whatever
 ;;; FUNCTION returns for the sub-tree of ancestor results.
 (defun map-results (function result &key (augment-inactive-rules t))
-  (let ((function (coerce function 'function))
+  (let ((function (ensure-function function))
         (augment (if augment-inactive-rules
                      #'maybe-augment-inactive-rules
                      #'identity)))
@@ -937,7 +937,7 @@ symbols."
   ;;
   ;; 2. Use local function MAP-MAX-RESULTS to traverse the tree
   ;;    calling FUNCTION on each RESULT.
-  (let ((function (coerce function 'function)))
+  (let ((function (ensure-function function)))
     (labels ((process-leaf-result (result)
                (list (result-position result) result '()))
              (process-inner-result (result recurse)
@@ -973,7 +973,7 @@ symbols."
         (funcall function result (constantly '()))))))
 
 (defun map-max-leaf-results (function result)
-  (let ((function (coerce function 'function)))
+  (let ((function (ensure-function function)))
     (map-max-results (lambda (result recurse)
                        (declare (type function recurse))
                        (when (not (funcall recurse))
