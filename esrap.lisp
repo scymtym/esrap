@@ -1113,7 +1113,10 @@ symbols."
          (expected    (mapcar (lambda (root)
                                 (let ((reason (result-root-cause root))
                                       (expected (result-expected-input root)))
-                                  (list root reason (length expected) expected)))
+                                  (list root
+                                        (when reason (list reason))
+                                        (length expected)
+                                        expected)))
                               partitioned))
          (expected    (sort expected #'expression< :key #'first)))
     ;; Print context (if any), then print each failure result from the
@@ -1125,7 +1128,7 @@ symbols."
                        ~{~{~
                          While parsing ~/esrap:print-result/. ~
                          ~@[Problem:~@:_~@:_~
-                           ~2@T~A~
+                           ~2@T~<~@;~A~:>~
                            ~[~:;~@:_~@:_~]~:*~
                          ~]~
                          ~[~
