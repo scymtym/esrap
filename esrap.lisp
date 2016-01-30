@@ -368,6 +368,9 @@ characters."
         (not (member character-ranges string and or not * + ? & ! ~
                      function))))
 
+(deftype predicate ()
+  '(cons predicate-name (cons (not null) null)))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defvar *expression-kinds*
     `((character        . (eql character))
@@ -380,7 +383,7 @@ characters."
                 '(not * + ? & !))
       (terminal         . terminal)
       (nonterminal      . nonterminal)
-      (predicate        . (cons predicate-name (cons (not null) null)))
+      (predicate        . predicate)
       (function         . (cons (eql function) (cons symbol null)))
       (t                . t))
     "Names and corresponding types of acceptable expression
@@ -849,6 +852,11 @@ symbols."
 (defun result-nonterminal-p (result)
   (typep (result-expression result) 'nonterminal))
 
+(defun result-unsatisfied-predicate-p (result)
+  (and (failed-parse-p result)
+       (typep (result-expression result) 'predicate)
+       (successful-parse-p (result-detail result))))
+
 (declaim (ftype (function (list &optional input-position)
                           (values input-position &optional))
                 max-of-result-positions))
@@ -1037,6 +1045,15 @@ symbols."
                          (result-expression result)))))
         ((typep (result-detail result) '(or string condition))
          (list (result-detail result)))
+        ((result-unsatisfied-predicate-p result)
+         (list (format nil "The production~
+                            ~2%~
+                            ~2@T~<~S~:>~
+                            ~2%~
+                            does not satisfy the predicate ~S."
+                       (list (successful-parse-production
+                              (result-detail result)))
+                       (first (result-expression result)))))
         (t
          (flattened-children recurse))))
     result)))

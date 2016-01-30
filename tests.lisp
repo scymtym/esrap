@@ -490,7 +490,10 @@
   (signals-esrap-error ("123foo" esrap-parse-error 3
                                  ("At" "^ (Line 1, Column 3, Position 3)"
                                   "In context INTEGER:"
-                                  "While parsing INTEGER." "Expected"
+                                  "While parsing INTEGER."
+                                  "The production" "#\\f"
+                                  "does not satisfy the predicate DIGIT-CHAR-P"
+                                  "Expected"
                                   "any character satisfying DIGIT-CHAR-P"
                                   "or <end of input>"))
     (parse 'integer "123foo"))
