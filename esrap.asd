@@ -1,21 +1,21 @@
-;;;;  Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;;  Copyright (c) 2012-2015 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
+;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
-;;;;  Permission is hereby granted, free of charge, to any person
-;;;;  obtaining a copy of this software and associated documentation files
-;;;;  (the "Software"), to deal in the Software without restriction,
-;;;;  including without limitation the rights to use, copy, modify, merge,
-;;;;  publish, distribute, sublicense, and/or sell copies of the Software,
-;;;;  and to permit persons to whom the Software is furnished to do so,
-;;;;  subject to the following conditions:
+;;;; Permission is hereby granted, free of charge, to any person
+;;;; obtaining a copy of this software and associated documentation files
+;;;; (the "Software"), to deal in the Software without restriction,
+;;;; including without limitation the rights to use, copy, modify, merge,
+;;;; publish, distribute, sublicense, and/or sell copies of the Software,
+;;;; and to permit persons to whom the Software is furnished to do so,
+;;;; subject to the following conditions:
 ;;;;
-;;;;  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-;;;;  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-;;;;  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-;;;;  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-;;;;  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-;;;;  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-;;;;  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+;;;; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+;;;; EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+;;;; MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+;;;; IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+;;;; CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (defpackage :esrap-system
   (:use :cl :asdf))
@@ -29,12 +29,27 @@
   :maintainer  "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
   :licence     "MIT"
   :depends-on  (:alexandria)
-  :components  ((:file "esrap")
+  :components  ((:module "src"
+                 :serial t
+                 :components ((:file "package")
+                              (:file "types")
+                              (:file "protocol")
+                              (:file "variables")
+                              (:file "conditions")
+                              (:file "expressions")
+                              (:file "rule")
+                              (:file "results")
+                              (:file "cache")
+                              (:file "evaluator")
+                              (:file "interface")
+                              (:file "editor-support")))
 
-                (:static-file "example-sexp.lisp")
-                (:static-file "example-symbol-table.lisp")
-                (:static-file "example-left-recursion.lisp")
-                (:static-file "example-function-terminals.lisp")
+                (:module "examples"
+                 :components ((:static-file "sexp.lisp")
+                              (:static-file "symbol-table.lisp")
+                              (:static-file "left-recursion.lisp")
+                              (:static-file "function-terminals.lisp")))
+
                 (:static-file "README.org"))
   :in-order-to ((test-op (test-op :esrap-tests))))
 
@@ -58,9 +73,13 @@
   :licence     "MIT"
   :depends-on  (:esrap :fiveam)
   :serial      t
-  :components  ((:file "example-left-recursion")
-                (:file "example-function-terminals")
-                (:file "tests")))
+  :components  ((:module "examples"
+                 :components ((:file "left-recursion")
+                              (:file "function-terminals")))
+
+                (:module "test"
+                 :serial t
+                 :components ((:file "tests")))))
 
 (defmethod perform ((operation test-op)
                     (system    (eql (find-system :esrap-tests))))

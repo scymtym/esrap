@@ -1,0 +1,251 @@
+;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
+;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;;
+;;;; Permission is hereby granted, free of charge, to any person
+;;;; obtaining a copy of this software and associated documentation files
+;;;; (the "Software"), to deal in the Software without restriction,
+;;;; including without limitation the rights to use, copy, modify, merge,
+;;;; publish, distribute, sublicense, and/or sell copies of the Software,
+;;;; and to permit persons to whom the Software is furnished to do so,
+;;;; subject to the following conditions:
+;;;;
+;;;; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+;;;; EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+;;;; MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+;;;; IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+;;;; CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+(in-package :esrap)
+
+;;; Miscellany
+
+(defun text (&rest arguments)
+  "Arguments must be strings, or lists whose leaves are strings.
+Catenates all the strings in arguments into a single string."
+  (with-output-to-string (s)
+    (labels ((cat-list (list)
+               (dolist (elt list)
+                 (etypecase elt
+                   (string (write-string elt s))
+                   (character (write-char elt s))
+                   (list (cat-list elt))))))
+      (cat-list arguments))))
+
+(defun text/bounds (strings start end)
+  (declare (ignore start end))
+  (text strings))
+
+(defun lambda/bounds (function)
+  (lambda (result start end)
+    (declare (ignore start end))
+    (funcall function result)))
+
+(defun identity/bounds (identity start end)
+  (declare (ignore start end))
+  identity)
+
+(defun parse-lambda-list-maybe-containing-&bounds (lambda-list)
+  "Parse &BOUNDS section in LAMBDA-LIST and return three values:
+
+1. The standard lambda list sublist of LAMBDA-LIST
+2. A symbol that should be bound to the start of a matching substring
+3. A symbol that should be bound to the end of a matching substring
+4. A list containing symbols that were GENSYM'ed.
+
+The second and/or third values are GENSYMS if LAMBDA-LIST contains a
+partial or no &BOUNDS section, in which case fourth value contains them
+for use with IGNORE."
+  (let ((length (length lambda-list)))
+    (multiple-value-bind (lambda-list start end gensyms)
+        (cond
+          ;; Look for &BOUNDS START END.
+          ((and (>= length 3)
+                (eq (nth (- length 3) lambda-list) '&bounds))
+           (values (subseq lambda-list 0 (- length 3))
+                   (nth (- length 2) lambda-list)
+                   (nth (- length 1) lambda-list)
+                   nil))
+          ;; Look for &BOUNDS START.
+          ((and (>= length 2)
+                (eq (nth (- length 2) lambda-list) '&bounds))
+           (let ((end (gensym "END")))
+             (values (subseq lambda-list 0 (- length 2))
+                     (nth (- length 1) lambda-list)
+                     end
+                     (list end))))
+          ;; No &BOUNDS section.
+          (t
+           (let ((start (gensym "START"))
+                 (end (gensym "END")))
+             (values lambda-list
+                     start
+                     end
+                     (list start end)))))
+      (check-type start symbol)
+      (check-type end symbol)
+      (values lambda-list start end gensyms))))
+
+;;; RULE REPRESENTATION AND STORAGE
+;;;
+;;; For each rule, there is a RULE-CELL in *RULES*, whose %INFO slot has the
+;;; function that implements the rule in car, and the rule object in CDR. A
+;;; RULE object can be attached to only one non-terminal at a time, which is
+;;; accessible via RULE-SYMBOL.
+
+(defvar *rules* (make-hash-table))
+
+(defun clear-rules ()
+  (clrhash *rules*)
+  nil)
+
+(defstruct (rule-cell
+             (:conc-name cell-)
+             (:constructor
+              make-rule-cell
+              (symbol &aux (%info (cons (undefined-rule-function symbol) nil))))
+             (:copier nil)
+             (:predicate nil))
+  ;; A cons
+  ;;
+  ;;   (FUNCTION . RULE)
+  ;;
+  ;; where
+  ;;
+  ;; FUNCTION is a function with lambda-list (text position end) which
+  ;; is called to do the actual parsing work (or immediately signal an
+  ;; error in case of referenced but undefined rules).
+  ;;
+  ;; RULE is a RULE instance associated to the cell or nil for
+  ;; referenced but undefined rules.
+  (%info (required-argument :%info) :type (cons function t))
+  ;; Either NIL if the corresponding rule is not currently traced or a
+  ;; list
+  ;;
+  ;;   (INFO BREAK CONDITION)
+  ;;
+  ;; where
+  ;;
+  ;; INFO is the original value (i.e. before the rule was traced) of
+  ;; the %INFO slot of the cell.
+  ;;
+  ;; BREAK is a Boolean indicating whether to CL:BREAK when the traced
+  ;; rule is executed.
+  ;;
+  ;; CONDITION is NIL or a function that is called when the traced
+  ;; rule is executed to determine whether the trace action should be
+  ;; performed.
+  (trace-info nil)
+  (referents nil :type list))
+
+(declaim (inline cell-function))
+(defun cell-function (cell)
+  (car (cell-%info cell)))
+
+(defun cell-rule (cell)
+  (cdr (cell-%info cell)))
+
+(defun set-cell-info (cell function rule)
+  ;; Atomic update
+  (setf (cell-%info cell) (cons function rule))
+  cell)
+
+(defun undefined-rule-function (symbol)
+  (lambda (&rest args)
+    (declare (ignore args))
+    (undefined-rule symbol)))
+
+(defun ensure-rule-cell (symbol)
+  (check-type symbol nonterminal)
+  ;; FIXME: Need to lock *RULES*.
+  (or (gethash symbol *rules*)
+      (setf (gethash symbol *rules*)
+            (make-rule-cell symbol))))
+
+(defun delete-rule-cell (symbol)
+  (remhash symbol *rules*))
+
+(defun reference-rule-cell (symbol referent)
+  (let ((cell (ensure-rule-cell symbol)))
+    (when referent
+      (pushnew referent (cell-referents cell)))
+    cell))
+
+(defun dereference-rule-cell (symbol referent)
+  (let ((cell (ensure-rule-cell symbol)))
+    (setf (cell-referents cell) (delete referent (cell-referents cell)))
+    cell))
+
+(defun find-rule-cell (symbol)
+  (check-type symbol nonterminal)
+  (gethash symbol *rules*))
+
+(defclass rule ()
+  ((%symbol
+    :initform nil)
+   (%expression
+    :initarg :expression
+    :initform (required-argument :expression))
+   (%guard-expression
+    :initarg :guard-expression
+    :initform t
+    :reader rule-guard-expression)
+   ;; Either T for rules that are always active (the common case),
+   ;; NIL for rules that are never active, or a function to call
+   ;; to find out if the rule is active or not.
+   (%condition
+    :initarg :condition
+    :initform t
+    :reader rule-condition)
+   (%transform
+    :initarg :transform
+    :initform nil
+    :reader rule-transform)
+   (%around
+    :initarg :around
+    :initform nil
+    :reader rule-around)))
+
+(defun rule-symbol (rule)
+  "Returns the nonterminal associated with the RULE, or NIL of the rule
+is not attached to any nonterminal."
+  (slot-value rule '%symbol))
+
+(defun detach-rule (rule)
+  (dolist (dep (%rule-direct-dependencies rule))
+    (dereference-rule-cell dep (rule-symbol rule)))
+  (setf (slot-value rule '%symbol) nil))
+
+(defmethod shared-initialize :after ((rule rule) slots &key)
+  (declare (ignore slots))
+  (check-expression (rule-expression rule)))
+
+(defmethod print-object ((rule rule) stream)
+  (print-unreadable-object (rule stream :type t :identity nil)
+    (format stream "~:[(detached)~;~:*~S <- ~S~]"
+            (rule-symbol rule) (rule-expression rule))))
+
+(defun sort-dependencies (symbol dependencies)
+  (let ((symbols (delete symbol dependencies))
+        (defined nil)
+        (undefined nil))
+    (dolist (sym symbols)
+      (if (find-rule sym)
+          (push sym defined)
+          (push sym undefined)))
+    (values defined undefined)))
+
+(defun rule-dependencies (rule)
+  "Returns the dependencies of the RULE: primary value is a list of defined
+nonterminal symbols, and secondary value is a list of undefined nonterminal
+symbols."
+  (sort-dependencies
+   (rule-symbol rule) (%expression-dependencies (rule-expression rule) nil)))
+
+(defun rule-direct-dependencies (rule)
+  (sort-dependencies
+   (rule-symbol rule) (%expression-direct-dependencies (rule-expression rule) nil)))
+
+(defun %rule-direct-dependencies (rule)
+  (delete (rule-symbol rule) (%expression-direct-dependencies (rule-expression rule) nil)))
