@@ -2051,22 +2051,34 @@ inspection."
       (exec-string expression length text position end))))
 
 ;;; Terminals
-;;;
-;;; FIXME: It might be worth it to special-case terminals of length 1.
 
-(declaim (inline match-terminal-p))
-(defun match-terminal-p (string length text position end case-sensitive-p)
+(declaim (inline match-terminal/case-sensitive-p
+                 match-terminal/case-insensitive-p
+                 match-terminal/1/case-sensitive-p
+                 match-terminal/1/case-insensitive-p))
+
+(defun match-terminal/case-sensitive-p (string length text position end)
   (and (<= (+ length position) end)
-       (if case-sensitive-p
-           (string= string text :start2 position :end2 (+ position length))
-           (string-equal string text :start2 position :end2 (+ position length)))))
+       (string= string text :start2 position :end2 (+ position length))))
+
+(defun match-terminal/case-insensitive-p (string length text position end)
+  (and (<= (+ length position) end)
+       (string-equal string text :start2 position :end2 (+ position length))))
+
+(defun match-terminal/1/case-sensitive-p (char text position end)
+  (and (< position end) (char= (char text position) char)))
+
+(defun match-terminal/1/case-insensitive-p (char text position end)
+  (and (< position end) (char-equal (char text position) char)))
 
 (declaim (ftype (function (string input-position
                            string input-position input-length boolean)
                           (values result &optional))
                 exec-terminal))
 (defun exec-terminal (string length text position end case-sensitive-p)
-  (if (match-terminal-p string length text position end case-sensitive-p)
+  (if (if case-sensitive-p
+          (match-terminal/case-sensitive-p string length text position end)
+          (match-terminal/case-insensitive-p string length text position end))
       (make-successful-parse
        string (the input-position (+ length position)) nil string)
       (make-failed-parse string position nil)))
@@ -2075,9 +2087,35 @@ inspection."
   (exec-terminal string (length string) text position end case-sensitive-p))
 
 (defun compile-terminal (string case-sensitive-p)
-  (let ((length (length string)))
-    (expression-lambda #:terminal (text position end)
-      (exec-terminal string length text position end case-sensitive-p))))
+  (macrolet ((with-results ((expression length result) form)
+               `(if ,form
+                    (make-successful-parse
+                     ,expression (the input-position (+ ,length position)) nil ,result)
+                    (make-failed-parse ,expression position nil))))
+    (let ((length (length string)))
+      (cond
+        ((and (= 1 length) case-sensitive-p)
+         (let ((char (char string 0)))
+           (expression-lambda #:terminal/1/case-sensitive (text position end)
+             (with-results (string 1 string)
+               (match-terminal/1/case-sensitive-p
+                char text position end)))))
+        ((= 1 length)
+         (let ((char (char string 0)))
+           (expression-lambda #:terminal/1/case-insensitive (text position end)
+             (with-results (string 1 string)
+               (match-terminal/1/case-insensitive-p
+                char text position end)))))
+        (case-sensitive-p
+         (expression-lambda #:terminal/case-sensitive (text position end)
+           (with-results (string length string)
+             (match-terminal/case-insensitive-p
+              string length text position end))))
+        (t
+         (expression-lambda #:terminal/case-insensitive (text position end)
+           (with-results (string length string)
+             (match-terminal/case-insensitive-p
+              string length text position end))))))))
 
 (declaim (ftype (function (* function string input-position input-length)
                           (values result &optional))
@@ -2302,7 +2340,8 @@ inspection."
                (let* ((string (car choise))
                       (len (length string)))
                  (declare (type string string))
-                 (when (match-terminal-p string len text position end t)
+                 (when (match-terminal/case-sensitive-p
+                        string len text position end)
                    (return
                      (%make-successful-parse
                       expression (the input-position (+ len position))
