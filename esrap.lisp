@@ -2071,20 +2071,14 @@ inspection."
 (defun match-terminal/1/case-insensitive-p (char text position end)
   (and (< position end) (char-equal (char text position) char)))
 
-(declaim (ftype (function (string input-position
-                           string input-position input-length boolean)
-                          (values result &optional))
-                exec-terminal))
-(defun exec-terminal (string length text position end case-sensitive-p)
-  (if (if case-sensitive-p
-          (match-terminal/case-sensitive-p string length text position end)
-          (match-terminal/case-insensitive-p string length text position end))
-      (make-successful-parse
-       string (the input-position (+ length position)) nil string)
-      (make-failed-parse string position nil)))
-
 (defun eval-terminal (string text position end case-sensitive-p)
-  (exec-terminal string (length string) text position end case-sensitive-p))
+  (let ((length (length string)))
+    (if (if case-sensitive-p
+            (match-terminal/case-sensitive-p string length text position end)
+            (match-terminal/case-insensitive-p string length text position end))
+        (make-successful-parse
+         string (the input-position (+ length position)) nil string)
+        (make-failed-parse string position nil))))
 
 (defun compile-terminal (string case-sensitive-p)
   (macrolet ((with-results ((expression length result) form)
