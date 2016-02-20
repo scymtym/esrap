@@ -23,7 +23,7 @@
 (in-package :esrap-system)
 
 (defsystem :esrap
-  :version     "0.12"
+  :version     "0.13"
   :description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
   :author      "Nikodemus Siivola <nikodemus@random-state.net>"
   :maintainer  "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
