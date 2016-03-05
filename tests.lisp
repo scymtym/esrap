@@ -1015,9 +1015,10 @@ bla
         (parse 'esrap-example.function-terminals:common-lisp
                "(list 'i :::love 'lisp"))
     (esrap-parse-error (condition)
+      #-sbcl (declare (ignore condition))
       ;; Different readers may report this differently.
-      (is (<= 9 (esrap-error-position condition) 16))
-      ;; Not sure how other lists report this.
+      #+sbcl (is (<= 9 (esrap-error-position condition) 16))
+      ;; Not sure how other lisps report this.
       #+sbcl (is (search "too many colons"
                          (princ-to-string condition))))))
 
