@@ -51,13 +51,14 @@
                         (with-output-to-string (stream)
                           (pprint-logical-block (stream nil)
                             (princ condition stream))))))
-            (position 0))
+            (start 0))
         (mapc (lambda (message)
-                (is (setf position (search message report
-                                           :start2 position))
-                    "~@<The string ~S does not occur in ~S after ~
-                     position ~D.~@:>"
-                    message report position))
+                (let ((position (search message report :start2 start)))
+                  (is (integerp position)
+                      "~@<The string ~S does not occur in ~S after ~
+                       position ~D.~@:>"
+                      message report start)
+                  (setf start position)))
               messages)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
