@@ -564,7 +564,7 @@ is not attached to any nonterminal."
 
 (defmethod print-object ((rule rule) stream)
   (print-unreadable-object (rule stream :type t :identity nil)
-    (format stream "~:[(detached)~:;~:*~S <- ~S~]"
+    (format stream "~:[(detached)~;~:*~S <- ~S~]"
             (rule-symbol rule) (rule-expression rule))))
 
 (defun sort-dependencies (symbol dependencies)
