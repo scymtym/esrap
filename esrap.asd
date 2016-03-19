@@ -18,35 +18,53 @@
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (defsystem :esrap
-  :version     "0.13"
-  :description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
-  :author      "Nikodemus Siivola <nikodemus@random-state.net>"
-  :maintainer  "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
-  :licence     "MIT"
-  :depends-on  (:alexandria)
-  :components  ((:module "src"
-                 :serial t
-                 :components ((:file "package")
-                              (:file "types")
-                              (:file "protocol")
-                              (:file "variables")
-                              (:file "conditions")
-                              (:file "expressions")
-                              (:file "rule")
-                              (:file "results")
-                              (:file "cache")
-                              (:file "evaluator")
-                              (:file "interface")
-                              (:file "editor-support")))
+  :version          "0.13"
+  :description      "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
+  :long-description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp.
 
-                (:module "examples"
-                 :components ((:static-file "sexp.lisp")
-                              (:static-file "symbol-table.lisp")
-                              (:static-file "left-recursion.lisp")
-                              (:static-file "function-terminals.lisp")))
+                     Notable features include
 
-                (:static-file "README.org"))
-  :in-order-to ((test-op (test-op :esrap-tests))))
+                     * dynamic redefinition of nonterminals
+                     * inline grammars
+                     * semantic predicates
+                     * introspective facilities (describing grammars,
+                       tracing, setting breaks)
+                     * left-recursive grammars
+                     * functions as terminals
+
+                     See README.org and :homepage for more
+                     information."
+  :author           ("Nikodemus Siivola <nikodemus@random-state.net>"
+                     "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>")
+  :maintainer       "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
+  :homepage         "https://scymtym.github.io/esrap"
+  :bug-tracker      "https://github.com/scymtym/esrap/issues"
+  :source-control   (:git "https://github.com/scymtym/esrap.git")
+  :licence          "MIT"
+  :depends-on       (:alexandria)
+  :components       ((:module "src"
+                      :serial t
+                      :components ((:file "package")
+                                   (:file "types")
+                                   (:file "protocol")
+                                   (:file "variables")
+                                   (:file "conditions")
+                                   (:file "expressions")
+                                   (:file "rule")
+                                   (:file "results")
+                                   (:file "cache")
+                                   (:file "evaluator")
+                                   (:file "interface")
+                                   (:file "editor-support")))
+
+                     (:module "examples"
+                      :components ((:static-file "sexp.lisp")
+                                   (:static-file "symbol-table.lisp")
+                                   (:static-file "left-recursion.lisp")
+                                   (:static-file "function-terminals.lisp")))
+
+                     (:static-file "README.org"))
+  :in-order-to      ((test-op (test-op :esrap-tests))))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
   ;; Since version 0.13
@@ -63,7 +81,8 @@
 
 (defsystem :esrap-tests
   :description "Tests for ESRAP."
-  :author      "Nikodemus Siivola <nikodemus@random-state.net>"
+  :author      ("Nikodemus Siivola <nikodemus@random-state.net>"
+                "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>")
   :maintainer  "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
   :licence     "MIT"
   :depends-on  (:esrap :fiveam)
