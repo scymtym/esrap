@@ -14,7 +14,7 @@
 
   Homepage & Documentation
 
-    http://scymtym.github.com/esrap/
+    https://scymtym.github.io/esrap/
 
     #+ATTR_HTML: :alt "build status image" :title Build Status :align right
     [[https://travis-ci.org/scymtym/esrap][https://travis-ci.org/scymtym/esrap.svg]]
@@ -77,20 +77,13 @@
   (! <expr>)                  -- not-followed-by; does not consume
   #+end_example
 
-* Example Files
-
-  + [[file:examples/sexp.lisp]]: complete sample grammar and usage
-  + [[file:examples/symbol-table.lisp]]: grammar with lexical scope
-  + [[file:examples/left-recursion.lisp]]: multiple grammars with left recursion
-  + [[file:examples/function-terminals.lisp]]: grammars with functions as terminals
-
 * Trivial Examples
 
   #+begin_src lisp :results none :exports none :session "doc"
     (ql:quickload :esrap)
   #+end_src
 
-  Parse takes an expression:
+  The =parse= function takes an expression:
   #+begin_src lisp :results value code :exports both :session "doc"
     (multiple-value-list (esrap:parse '(or "foo" "bar") "foo"))
   #+end_src
@@ -119,6 +112,13 @@
   (("foo" "foo" "foo") NIL T)
   #+END_SRC
 
+  The equivalent =defrule= form is
+  #+begin_src lisp :results value code :exports code :session "doc"
+    (esrap:defrule foo+ '(+ "foo"))
+  #+end_src
+  Note that rules can be redefined, i.e. this =defrule= form replaces
+  the previous definition of the =foo+= rule.
+
   Rules can transform their matches:
   #+begin_src lisp :results silent :exports code :session "doc"
     (esrap:add-rule
@@ -129,6 +129,14 @@
       :transform (lambda (list start end)
                    (declare (ignore start end))
                    (parse-integer (format nil "~{~A~}" list)))))
+  #+end_src
+
+  or using =defrule=
+  #+begin_src lisp :results value code :exports code :session "doc"
+    (esrap:defrule decimal
+        (+ (or "0" "1" "2" "3" "4" "5" "6" "7" "8" "9"))
+      (:lambda (list)
+        (parse-integer (format nil "~{~A~}" list))))
   #+end_src
 
   Any lisp function can be used as a semantic predicate:
@@ -143,3 +151,13 @@
 
   ((123 NIL T) (NIL 0))
   #+END_SRC
+
+* Example Files
+
+  More complete examples can be found in the following self-contained
+  example files:
+
+  + [[file:examples/sexp.lisp]]: complete sample grammar and usage
+  + [[file:examples/symbol-table.lisp]]: grammar with lexical scope
+  + [[file:examples/left-recursion.lisp]]: multiple grammars with left recursion
+  + [[file:examples/function-terminals.lisp]]: grammars with functions as terminals
