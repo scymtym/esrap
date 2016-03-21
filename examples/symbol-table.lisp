@@ -1,11 +1,11 @@
 ;;;; Esrap example: a simple grammar with scopes and symbol tables.
 
-(require :esrap)
+(cl:require :esrap)
 
-(defpackage :symbol-table
-  (:use :cl :esrap))
+(cl:defpackage #:symbol-table
+  (:use #:cl #:esrap))
 
-(in-package :symbol-table)
+(cl:in-package #:symbol-table)
 
 ;;; Use the :AROUND construction to maintain a stack of symbol tables
 ;;; during parsing.

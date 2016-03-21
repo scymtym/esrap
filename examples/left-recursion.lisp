@@ -1,12 +1,12 @@
 ;;;; Esrap example: some grammars with left-recursive rules.
 
-(require :esrap)
+(cl:require :esrap)
 
-(defpackage :left-recursive-grammars
-  (:use :cl :alexandria :esrap)
+(cl:defpackage #:left-recursive-grammars
+  (:use #:cl #:alexandria #:esrap)
   (:export #:la-expr #:ra-expr #:primary))
 
-(in-package :left-recursive-grammars)
+(cl:in-package :left-recursive-grammars)
 
 ;;; Left associative expressions
 

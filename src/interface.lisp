@@ -35,7 +35,7 @@
 ;;;;  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;;;;  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-(in-package :esrap)
+(cl:in-package #:esrap)
 
 (defun parse (expression text &key (start 0) end junk-allowed raw)
   "Parses TEXT using EXPRESSION from START to END.

@@ -1,11 +1,11 @@
 ;;;; Esrap example: a simple S-expression grammar
 
-(require :esrap)
+(cl:require :esrap)
 
-(defpackage :sexp-grammar
-  (:use :cl :esrap))
+(cl:defpackage #:sexp-grammar
+  (:use #:cl #:esrap))
 
-(in-package :sexp-grammar)
+(cl:in-package #:sexp-grammar)
 
 ;;; A semantic predicate for filtering out double quotes.
 

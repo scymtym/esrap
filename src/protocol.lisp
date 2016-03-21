@@ -17,9 +17,9 @@
 ;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-(in-package :esrap)
+(cl:in-package #:esrap)
 
-;;; Error protocol
+;;; Error protocolx
 
 (defgeneric esrap-error-position (condition)
   (:documentation

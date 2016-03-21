@@ -1,12 +1,12 @@
 ;;;; Esrap example: some grammars with function-based terminals.
 
-(require :esrap)
+(cl:require :esrap)
 
-(defpackage :esrap-example.function-terminals
-  (:use :cl :esrap)
+(cl:defpackage #:esrap-example.function-terminals
+  (:use #:cl #:esrap)
   (:export #:indented-block #:common-lisp))
 
-(in-package :esrap-example.function-terminals)
+(cl:in-package #:esrap-example.function-terminals)
 
 ;;; Ex. 1. Using a custom terminal for context sensitive parsing.
 ;;;

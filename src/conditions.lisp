@@ -17,7 +17,7 @@
 ;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-(in-package :esrap)
+(cl:in-package #:esrap)
 
 (define-condition invalid-expression-error (error)
   ((expression :initarg :expression :reader invalid-expression-error-expression))

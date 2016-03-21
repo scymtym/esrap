@@ -17,11 +17,6 @@
 ;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-(defpackage :esrap-system
-  (:use :cl :asdf))
-
-(in-package :esrap-system)
-
 (defsystem :esrap
   :version     "0.13"
   :description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."

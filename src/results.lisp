@@ -24,7 +24,7 @@
 ;;;; is used to perform semantic actions only when necessary -- either
 ;;;; when we call a semantic predicate or once parse has finished.
 
-(in-package :esrap)
+(cl:in-package #:esrap)
 
 (defstruct (result (:constructor nil) (:copier nil))
   ;; Expression that succeeded/failed to match.

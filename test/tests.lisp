@@ -17,14 +17,12 @@
 ;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-(in-package :cl-user)
-
-(defpackage :esrap-tests
-  (:use :alexandria :cl :esrap :fiveam)
-  (:shadowing-import-from :esrap "!")
+(cl:defpackage #:esrap-tests
+  (:use #:alexandria #:cl #:esrap #:fiveam)
+  (:shadowing-import-from #:esrap #:!)
   (:export #:run-tests))
 
-(in-package :esrap-tests)
+(cl:in-package #:esrap-tests)
 
 (def-suite esrap)
 (in-suite esrap)
