@@ -478,8 +478,15 @@ inspection."
   (check-type symbol nonterminal)
   (flet ((max-symbol-length (symbols)
            (reduce #'max symbols
-                   :key (compose #'length #'symbol-name)
-                   :initial-value 0)))
+                   :key (compose #'length #'prin1-to-string)
+                   :initial-value 0))
+         (output-rule (length rule)
+           (format stream "~3T~S~VT<- ~S~@[ : ~S~]~%"
+                   (rule-symbol rule)
+                   length
+                   (rule-expression rule)
+                   (when (rule-condition rule)
+                     (rule-guard-expression rule)))))
     (if-let ((rule (find-rule symbol)))
       (progn
         (format stream "~&Grammar ~S:~%" symbol)
@@ -487,17 +494,8 @@ inspection."
           (let ((length
                  (+ 4 (max (max-symbol-length defined)
                            (max-symbol-length undefined)))))
-            (format stream "~3T~S~VT<- ~S~@[ : ~S~]~%"
-                    symbol length (rule-expression rule)
-                    (when (rule-condition rule)
-                      (rule-guard-expression rule)))
-            (when defined
-              (dolist (s defined)
-                (let ((dep (find-rule s)))
-                  (format stream "~3T~S~VT<- ~S~@[ : ~S~]~%"
-                          s length (rule-expression dep)
-                          (when (rule-condition rule)
-                            (rule-guard-expression rule))))))
+            (output-rule length rule)
+            (mapc (compose (curry #'output-rule length) #'find-rule) defined)
             (when undefined
               (format stream "~%Undefined nonterminal~P:~%~{~3T~S~%~}"
                       (length undefined) undefined)))))
