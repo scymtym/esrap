@@ -734,6 +734,8 @@
     (test-case "f"         (format nil "the character f (~A)" (char-name #\f)))
     (test-case "foo"       "the string \"foo\"")
     (test-case '(~ "foo")  "the string \"foo\", disregarding case")
+    (test-case '(character-ranges #\a)
+               "a character in [a]")
     (test-case '(character-ranges (#\a #\z))
                "a character in [a-z]")
     (test-case '#'parse-integer

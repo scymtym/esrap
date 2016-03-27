@@ -256,8 +256,8 @@ but clause heads designate kinds of expressions instead of types. See
            (string
             (output "a string of length ~D" (second terminal)))
            (character-ranges
-            (output "a character in ~{[~{~C-~C~}]~^ or ~}"
-                    (rest terminal)))
+            (output "a character in ~{[~{~C~^-~C~}]~^ or ~}"
+                    (mapcar #'ensure-list (rest terminal))))
            (function
             (output "a string that can be parsed by the function ~S"
                     (second terminal)))
