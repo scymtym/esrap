@@ -42,18 +42,18 @@
   "Literal strings and characters are used as case-sensitive terminal symbols,
 and expressions of the form \(~ <literal>) denote case-insensitive terminals."
   '(or string character
-    (cons (eql ~) (cons (or string character) null))))
+       (cons (eql ~) (cons (or string character) null))))
 
 (deftype character-range ()
   "A character range is either a single character or a list of two
 characters."
   '(or character
-    (cons character (cons character null))))
+       (cons character (cons character null))))
 
 (deftype predicate-name ()
   '(and symbol
-    (not (member character-ranges string and or not * + ? & ! ~
-          function))))
+        (not (member character-ranges string and or not * + ? & ! ~
+                     function))))
 
 (deftype predicate ()
   '(cons predicate-name (cons (not null) null)))
