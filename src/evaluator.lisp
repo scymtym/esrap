@@ -614,25 +614,24 @@
 ;;; Semantic predicates
 
 (defun eval-semantic-predicate (expression text position end)
-  (with-expression (expression (t subexpr))
+  (with-expression (expression ((t predicate-name) subexpr))
     (let ((result (eval-expression subexpr text position end)))
       (if (error-result-p result)
           (make-failed-parse expression position result)
           (let ((production (successful-parse-production result)))
-            (if (funcall (symbol-function (car expression)) production)
+            (if (funcall (symbol-function predicate-name) production)
                 result
                 (make-failed-parse expression position result)))))))
 
 (defun compile-semantic-predicate (expression)
-  (with-expression (expression (t subexpr))
+  (with-expression (expression ((t predicate-name) subexpr))
     (let* ((function (compile-expression subexpr))
-           (predicate (car expression))
            ;; KLUDGE: Calling via a variable symbol can be slow, and if we
            ;; grab the SYMBOL-FUNCTION here we will not see redefinitions.
            (semantic-function
-            (if (eq (symbol-package predicate) (load-time-value (find-package :cl)))
-                (symbol-function predicate)
-                (compile nil `(lambda (x) (,predicate x))))))
+            (if (eq (symbol-package predicate-name) (load-time-value (find-package :cl)))
+                (symbol-function predicate-name)
+                (compile nil `(lambda (x) (,predicate-name x))))))
       (expression-lambda #:semantic-predicate (text position end)
         (let ((result (funcall function text position end)))
           (if (error-result-p result)

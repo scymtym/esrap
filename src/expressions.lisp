@@ -78,17 +78,20 @@ but clause heads designate kinds of expressions instead of types. See
                ,@(when (assoc t available)
                    `((t (invalid-expression-error ,expression)))))))))))
 
-(defmacro with-expression ((expr lambda-list) &body body)
-  (let* ((type (car lambda-list))
-         (car-var (gensym "CAR"))
-         (fixed-list (cons car-var (cdr lambda-list))))
-    (once-only (expr)
-      `(destructuring-bind ,fixed-list ,expr
-         ,(if (eq t type)
-              `(declare (ignore ,car-var))
-              `(unless (eq ',type ,car-var)
-                 (error "~S-expression expected, got: ~S" ',type ,expr)))
-         (locally ,@body)))))
+(defmacro with-expression ((expr spec) &body body)
+  (destructuring-bind (type &optional (first-var (gensym)))
+      (etypecase (first spec)
+        ((cons symbol (cons symbol null))
+         (first spec))
+        (symbol
+         (list (first spec))))
+    (let ((lambda-list (list* first-var (rest spec))))
+      (once-only (expr)
+        `(destructuring-bind ,lambda-list ,expr
+           ,@(unless (eq t type)
+               `((unless (eq ',type ,first-var)
+                   (error "~S-expression expected, got: ~S" ',type ,expr))))
+           (locally ,@body))))))
 
 ;;;
 
