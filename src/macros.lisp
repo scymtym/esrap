@@ -33,19 +33,6 @@ Catenates all the strings in arguments into a single string."
                    (list (cat-list elt))))))
       (cat-list arguments))))
 
-(defun text/bounds (strings start end)
-  (declare (ignore start end))
-  (text strings))
-
-(defun lambda/bounds (function)
-  (lambda (result start end)
-    (declare (ignore start end))
-    (funcall function result)))
-
-(defun identity/bounds (identity start end)
-  (declare (ignore start end))
-  identity)
-
 ;;; DEFRULE support functions
 
 (defun parse-lambda-list-maybe-containing-&bounds (lambda-list)
@@ -154,19 +141,7 @@ for use with IGNORE."
         (condition t)
         (guard-seen nil))
     (dolist (option options)
-      (flet ((set-transform (trans/bounds trans/no-bounds
-                                          &optional use-start-end? start-end-symbols)
-               (setf transform
-                     (cond
-                       ((not transform)
-                        trans/bounds)
-                       (use-start-end?
-                        (error "~@<Trying to use ~{~S~^, ~} in composed ~
-                                ~S transformation.~@:>"
-                               start-end-symbols use-start-end?))
-                       (t
-                        `(compose ,trans/no-bounds ,transform)))))
-             (set-guard (expr test)
+      (flet ((set-guard (expr test)
                (if guard-seen
                    (error "~@<Multiple guards in ~S:~@:_~2@T~S~@:>"
                           'defrule form)
@@ -179,48 +154,33 @@ for use with IGNORE."
              (error "~@<Multiple expressions in a ~S:~@:_~2@T~S~@:>"
                     :when form))
            (set-guard expr (cond
-                             ((not (constantp expr)) `(lambda () ,expr))
-                             ((eval expr) t))))
+                             ((not (constantp expr))
+                              `(lambda () ,expr))
+                             ((eval expr)
+                              t))))
           ((:constant value)
-           (set-transform `(constantly ,value) `(constantly ,value)))
+           (declare (ignore value))
+           (push option transform))
           ((:text value)
            (when value
-             (set-transform '#'text/bounds '#'text)))
+             (push option transform)))
           ((:identity value)
            (when value
-             (set-transform '#'identity/bounds '#'identity)))
+             (push option transform)))
           ((:lambda lambda-list &body forms)
-           (multiple-value-bind (lambda-list* start end ignore)
-               (parse-lambda-list-maybe-containing-&bounds lambda-list)
-             (declare (type list ignore))
+           (declare (ignore forms))
+           (let ((lambda-list*
+                  (parse-lambda-list-maybe-containing-&bounds lambda-list)))
              (check-lambda-list lambda-list*
                                 '(or (:required 1) (:optional 1))
                                 :report-lambda-list lambda-list)
-             (apply #'set-transform
-                    `(lambda (,@lambda-list* ,start ,end)
-                       (declare (ignore ,@ignore))
-                       ,@forms)
-                    `(lambda ,lambda-list* ,@forms)
-                    (unless (length= 2 ignore)
-                      (list option
-                            (set-difference (list start end) ignore))))))
+             (push option transform)))
           ((:function designator)
-           (set-transform `(lambda/bounds
-                            (resolve-function ',designator '(production) ',option))
-                          `(resolve-function ',designator '(production) ',option)))
+           (declare (ignore designator))
+           (push option transform))
           ((:destructure lambda-list &body forms)
-           (multiple-value-bind (lambda-list start end ignore)
-               (parse-lambda-list-maybe-containing-&bounds lambda-list)
-             (set-transform
-              (with-gensyms (production)
-                `(lambda (,production ,start ,end)
-                   (declare (ignore ,@ignore))
-                   (destructuring-bind ,lambda-list ,production
-                     ,@forms)))
-              (with-gensyms (production)
-                `(lambda (,production)
-                   (destructuring-bind ,lambda-list ,production
-                     ,@forms))))))
+           (declare (ignore lambda-list forms))
+           (push option transform))
           ((:around lambda-list &body forms)
            (multiple-value-bind (lambda-list* start end ignore)
                (parse-lambda-list-maybe-containing-&bounds lambda-list)
@@ -233,3 +193,63 @@ for use with IGNORE."
                                       (funcall transform)))
                                ,@forms))))))))
     (values transform around guard condition)))
+
+(defun expand-transforms (transforms)
+  (labels
+      ((make-transform-body (start end start-var end-var ignore body)
+         (let* ((start-end-vars (list start-var end-var))
+                (other-ignore (set-difference ignore start-end-vars)))
+           (multiple-value-bind (forms declarations) (parse-body body)
+             `(,@(when other-ignore `((declare (ignore ,@other-ignore))))
+               ,@declarations
+               (let (,@(unless (member start-var ignore :test #'eq)
+                         `((,start-var ,start)))
+                     ,@(unless (member end-var ignore :test #'eq)
+                         `((,end-var ,end))))
+                 ,@forms)))))
+       (process-option (options start end production)
+         (destructuring-bind (&optional option &rest rest) options
+           (unless option
+             (return-from process-option (values production t)))
+           (destructuring-ecase option
+             ((:constant value)
+              (process-option rest start end `(progn ,production ,value)))
+             ((:identity value)
+              (declare (ignore value))
+              (process-option rest start end production))
+             ((:text value)
+              (declare (ignore value))
+              (process-option rest start end `(text ,production)))
+             ((:function designator)    ; TODO resolve-function?
+              (values
+               (process-option rest start end `(,designator ,production))
+               t))
+             ((:lambda lambda-list &body forms)
+              (multiple-value-bind (lambda-list* start-var end-var ignore)
+                  (parse-lambda-list-maybe-containing-&bounds lambda-list)
+                (check-lambda-list lambda-list*
+                                   '(or (:required 1) (:optional 1))
+                                   :report-lambda-list lambda-list)
+                (values (process-option
+                         rest start end
+                         `((lambda ,lambda-list*
+                             ,@(make-transform-body
+                                start end start-var end-var ignore forms))
+                           ,production))
+                        t)))
+             ((:destructure lambda-list &body forms)
+              (multiple-value-bind (lambda-list start-var end-var ignore)
+                  (parse-lambda-list-maybe-containing-&bounds lambda-list)
+                (values (process-option
+                         rest start end
+                         `(destructuring-bind ,lambda-list ,production
+                            ,@(make-transform-body
+                               start end start-var end-var ignore forms)))
+                        t)))))))
+    (with-gensyms (production start end)
+      (multiple-value-bind (form production-used-p)
+          (process-option (reverse transforms) start end production)
+        `(lambda (,production ,start ,end)
+           (declare ,@(unless production-used-p `((ignore ,production)))
+                    (ignorable ,start ,end))
+           ,form)))))

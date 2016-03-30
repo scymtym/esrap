@@ -197,15 +197,16 @@ Following OPTIONS can be specified:
     This option can be used to safely track nesting depth, manage symbol
     tables or for other stack-like operations.
 "
-  (multiple-value-bind (transform around guard condition)
+  (multiple-value-bind (transforms around guard condition)
       (parse-defrule-options options form)
-    `(eval-when (:load-toplevel :execute)
-       (add-rule ',symbol (make-instance 'rule
-                                         :expression ',expression
-                                         :guard-expression ',guard
-                                         :transform ,(or transform '#'identity/bounds)
-                                         :around ,around
-                                         :condition ,condition)))))
+    (let ((transform (expand-transforms transforms)))
+      `(eval-when (:load-toplevel :execute)
+         (add-rule ',symbol (make-instance 'rule
+                                           :expression ',expression
+                                           :guard-expression ',guard
+                                           :transform ,transform
+                                           :around ,around
+                                           :condition ,condition))))))
 
 (defun add-rule (symbol rule)
   "Associates RULE with the nonterminal SYMBOL. Signals an error if the

@@ -830,21 +830,25 @@
   (:text t)
   (:function parse-integer))
 
-(test-both-modes multiple-transforms.1
-  "Apply composed transforms to parse result."
-  (is (eql 1 (parse 'multiple-transforms.1 "a1c"))))
+(defrule multiple-transforms.2
+    #\1
+  (:text t)
+  (:function parse-integer)
+  (:function 1+)
+  (:lambda (x &bounds start end)
+    (list x start end)))
 
-(test multiple-transforms.invalid
-  "Test DEFRULE's behavior for invalid transforms."
-  (dolist (form '((defrule multiple-transforms.2 #\1
-                    (:text t)
-                    (:lambda (x &bounds start end)
-                      (parse-integer x)))
-                  (defrule multiple-transforms.3 #\1
-                    (:text t)
-                    (:lambda (x &bounds start)
-                      (parse-integer x)))))
-    (signals simple-error (macroexpand-1 form))))
+(defrule multiple-transforms.3
+    #\1
+  (:text t)
+  (:lambda (x &bounds start)
+    (list (parse-integer x) start)))
+
+(test-both-modes multiple-transforms
+  "Apply composed transforms to parse result."
+  (is (eql 1 (parse 'multiple-transforms.1 "a1c")))
+  (is (equal '(2 0 1) (parse 'multiple-transforms.2 "1")))
+  (is (equal '(1 0) (parse 'multiple-transforms.3 "1"))))
 
 ;;; Test rule introspection
 
