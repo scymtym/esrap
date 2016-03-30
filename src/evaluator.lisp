@@ -235,31 +235,33 @@
 (defun compile-terminal (string case-sensitive-p)
   (macrolet ((with-results ((expression length result) form)
                `(if ,form
-                    (make-successful-parse
-                     ,expression (the input-position (+ ,length position)) nil ,result)
+                    (%make-successful-parse
+                     ,expression (the input-position (+ ,length position))
+                     nil ,result)
                     (make-failed-parse ,expression position nil))))
-    (let ((length (length string)))
+    (let ((length (length string))
+          (result (list string)))
       (cond
         ((and (= 1 length) case-sensitive-p)
          (let ((char (char string 0)))
            (expression-lambda #:terminal/1/case-sensitive (text position end)
-             (with-results (string 1 string)
+             (with-results (string 1 result)
                (match-terminal/1/case-sensitive-p
                 char text position end)))))
         ((= 1 length)
          (let ((char (char string 0)))
            (expression-lambda #:terminal/1/case-insensitive (text position end)
-             (with-results (string 1 string)
+             (with-results (string 1 result)
                (match-terminal/1/case-insensitive-p
                 char text position end)))))
         (case-sensitive-p
          (expression-lambda #:terminal/case-sensitive (text position end)
-           (with-results (string length string)
+           (with-results (string length result)
              (match-terminal/case-sensitive-p
               string length text position end))))
         (t
          (expression-lambda #:terminal/case-insensitive (text position end)
-           (with-results (string length string)
+           (with-results (string length result)
              (match-terminal/case-insensitive-p
               string length text position end))))))))
 
