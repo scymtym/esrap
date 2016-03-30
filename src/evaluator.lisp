@@ -19,6 +19,23 @@
 
 (cl:in-package #:esrap)
 
+;;; Utilities
+
+(declaim (ftype (function * (values function &optional))
+                resolve-function))
+
+(defun resolve-function (name arguments expression)
+  (check-function-reference name expression)
+  (cond
+    ((member (symbol-package name)
+             (load-time-value (mapcar #'find-package '(#:cl #:esrap))))
+     (symbol-function name))
+    (t
+     ;; KLUDGE: Calling via a variable symbol can be slow, but if we
+     ;; grab the SYMBOL-FUNCTION here we will not see redefinitions.
+     (handler-bind ((style-warning #'muffle-warning))
+       (compile nil `(lambda ,arguments (,name ,@arguments)))))))
+
 ;;; COMPILING RULES
 
 (defvar *current-rule* nil)
@@ -290,8 +307,9 @@
       (exec-terminal-function expression function text position end))))
 
 (defun compile-terminal-function (expression)
-  (with-expression (expression (function function))
-    (let ((function (ensure-function function)))
+  (with-expression (expression (function function-name))
+    (let ((function (resolve-function
+                     function-name '(text position end) expression)))
       (expression-lambda #:terminal-function (text position end)
         (exec-terminal-function expression function text position end)))))
 
@@ -626,18 +644,14 @@
 (defun compile-semantic-predicate (expression)
   (with-expression (expression ((t predicate-name) subexpr))
     (let* ((function (compile-expression subexpr))
-           ;; KLUDGE: Calling via a variable symbol can be slow, and if we
-           ;; grab the SYMBOL-FUNCTION here we will not see redefinitions.
-           (semantic-function
-            (if (eq (symbol-package predicate-name) (load-time-value (find-package :cl)))
-                (symbol-function predicate-name)
-                (compile nil `(lambda (x) (,predicate-name x))))))
+           (predicate (resolve-function
+                       predicate-name '(production) expression)))
       (expression-lambda #:semantic-predicate (text position end)
         (let ((result (funcall function text position end)))
           (if (error-result-p result)
               (make-failed-parse expression position result)
               (let ((production (successful-parse-production result)))
-                (if (funcall semantic-function production)
+                (if (funcall predicate production)
                     result
                     (make-failed-parse expression position result)))))))))
 

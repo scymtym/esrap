@@ -95,6 +95,25 @@ but clause heads designate kinds of expressions instead of types. See
 
 ;;;
 
+(defun check-function-reference (name expression)
+  (cond
+    ((not (fboundp name))
+     (warn 'simple-style-warning
+           :format-control "~@<Undefined function ~S in expression ~
+                            ~S.~@:>"
+           :format-arguments (list name expression))
+     nil)
+    ((or (macro-function name)
+         (special-operator-p name))
+     (warn 'simple-style-warning
+           :format-control "~@<~S in expression ~S is not a ~
+                            function (but a macro or special ~
+                            operator).~@:>"
+           :format-arguments (list name expression))
+     nil)
+    (t
+     t)))
+
 (defun check-expression (expression)
   (labels
       ((rec (expression)

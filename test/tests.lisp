@@ -117,7 +117,19 @@
         (:function second)
         (:lambda (x) (declare (ignore x)))))))
 
-(test defrule.conditions
+(test defrule.style-warnings
+  "Test signaling of style-warnings from DEFRULE."
+  (macrolet ((signals-style-warning (expression)
+               `(signals style-warning
+                  (defrule foo ,expression))))
+    ;; Function terminal.
+    (signals-style-warning (function no-such-function))
+    (signals-style-warning (function cond))
+    ;; Semantic predicate
+    (signals-style-warning (no-such-function #\a))
+    (signals-style-warning (cond #\a))))
+
+(test defrule.errors
   "Test signaling of errors for DEFRULE syntax errors."
   (flet ((test-case (form)
            (signals error (macroexpand form))))
