@@ -255,7 +255,7 @@
         (case-sensitive-p
          (expression-lambda #:terminal/case-sensitive (text position end)
            (with-results (string length string)
-             (match-terminal/case-insensitive-p
+             (match-terminal/case-sensitive-p
               string length text position end))))
         (t
          (expression-lambda #:terminal/case-insensitive (text position end)

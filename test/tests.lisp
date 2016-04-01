@@ -567,15 +567,34 @@
   (signals esrap-parse-error (parse '(string 2) "a"))
   (signals esrap-parse-error (parse '(string 2) "aaa")))
 
+(defmacro times-2 (expr)
+  `'(and ,expr ,expr))
+
+(defmacro times-4 (expr)
+  `'(and ,expr ,expr ,expr ,expr))
+
 (test-both-modes parse.case-insensitive
-  "Test parsing an arbitrary string of a given length."
+  "Test parsing character and string constants in case-insensitive
+   mode."
+  ;; The TIMES-{2,4} macros and (and #\c) variants prevent the
+  ;; ordered-choise and greedy-repetition optimizations from being
+  ;; used.
   (dolist (input '("aabb" "AABB" "aAbB" "aaBB" "AAbb"))
     (unless (every #'lower-case-p input)
-      (signals esrap-parse-error (parse '(* (or #\a #\b)) input)))
-    (is (equal "aabb" (text (parse '(* (or (~ "aa") (~ "bb"))) input))))
-    (is (equal "aabb" (text (parse '(* (or (~ #\a) (~ #\b)))   input))))
-    (is (equal "AABB" (text (parse '(* (or (~ #\A) (~ #\B)))   input))))
-    (is (equal "aaBB" (text (parse '(* (or (~ #\a) (~ #\B)))   input))))))
+      (signals esrap-parse-error (parse (times-4 (or #\a #\b)) input))
+      (signals esrap-parse-error (parse (times-4 (or #\a #\b (and #\c))) input))
+      (signals esrap-parse-error (parse (times-2 (or "aa" "bb")) input))
+      (signals esrap-parse-error (parse (times-2 (or "aa" "bb" (and #\c))) input)))
+    (is (equal "aabb" (text (parse (times-2 (or (~ "aa") (~ "bb")))           input))))
+    (is (equal "aabb" (text (parse (times-2 (or (~ "aa") (~ "bb") (and #\c))) input))))
+    (is (equal "aabb" (text (parse (times-2 (or (~ "aa") (~ "bb")))           input))))
+    (is (equal "aabb" (text (parse (times-2 (or (~ "aa") (~ "bb") (and #\c))) input))))
+    (is (equal "aabb" (text (parse (times-4 (or (~ #\a) (~ #\b)))             input))))
+    (is (equal "aabb" (text (parse (times-4 (or (~ #\a) (~ #\b) (and #\c)))   input))))
+    (is (equal "AABB" (text (parse (times-4 (or (~ #\A) (~ #\B)))             input))))
+    (is (equal "AABB" (text (parse (times-4 (or (~ #\A) (~ #\B) (and #\c)))   input))))
+    (is (equal "aaBB" (text (parse (times-4 (or (~ #\a) (~ #\B)))             input))))
+    (is (equal "aaBB" (text (parse (times-4 (or (~ #\a) (~ #\B) (and #\c)))   input))))))
 
 (test-both-modes parse.negation
   "Test negation in rules."
