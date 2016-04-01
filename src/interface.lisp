@@ -65,8 +65,7 @@ happen when :raw t."
         (process-parse-result result text start end junk-allowed))))
 
 (define-compiler-macro parse (&whole form expression text
-                              &rest arguments &key &allow-other-keys
-                              &environment env)
+                              &rest arguments &key &allow-other-keys)
   (flet ((make-expansion (result-var rawp junk-allowed-p body)
            ;; This inline-lambda provides keyword defaults and
            ;; parsing, so the compiler-macro doesn't have to worry
@@ -83,11 +82,11 @@ happen when :raw t."
                      ,body))
                  ,text ,@(remove-from-plist arguments :raw))))))
    (cond
-     ((not (constantp expression env))
+     ((not (constantp expression)) ; cannot use ENV due to LOAD-TIME-VALUE
       form)
      ((let ((raw (getf arguments :raw 'missing)))
         (when (and (not (eq raw 'missing))
-                   (constantp raw env))
+                   (constantp raw)) ; cannot used ENV due to following EVAL
           (let ((rawp (eval raw)))
             (make-expansion 'result nil (not rawp)
                             (if rawp

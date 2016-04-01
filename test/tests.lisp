@@ -567,11 +567,15 @@
   (signals esrap-parse-error (parse '(string 2) "a"))
   (signals esrap-parse-error (parse '(string 2) "aaa")))
 
-(defmacro times-2 (expr)
-  `'(and ,expr ,expr))
+(defmacro times-2 (form)
+  (destructuring-bind (first second third) form
+    (let ((expr (second second)))
+      `(,first '(and ,expr ,expr) ,third))))
 
-(defmacro times-4 (expr)
-  `'(and ,expr ,expr ,expr ,expr))
+(defmacro times-4 (form)
+  (destructuring-bind (first second third) form
+    (let ((expr (second second)))
+      `(,first '(and ,expr ,expr ,expr ,expr) ,third))))
 
 (test-both-modes parse.case-insensitive
   "Test parsing character and string constants in case-insensitive
@@ -579,22 +583,26 @@
   ;; The TIMES-{2,4} macros and (and #\c) variants prevent the
   ;; ordered-choise and greedy-repetition optimizations from being
   ;; used.
+  ;;
+  ;; To further complicate things, TIMES-{2,4} cannot be lexical
+  ;; macros as that would prevent application of the `parse'
+  ;; compiler-macro.
   (dolist (input '("aabb" "AABB" "aAbB" "aaBB" "AAbb"))
     (unless (every #'lower-case-p input)
-      (signals esrap-parse-error (parse (times-4 (or #\a #\b)) input))
-      (signals esrap-parse-error (parse (times-4 (or #\a #\b (and #\c))) input))
-      (signals esrap-parse-error (parse (times-2 (or "aa" "bb")) input))
-      (signals esrap-parse-error (parse (times-2 (or "aa" "bb" (and #\c))) input)))
-    (is (equal "aabb" (text (parse (times-2 (or (~ "aa") (~ "bb")))           input))))
-    (is (equal "aabb" (text (parse (times-2 (or (~ "aa") (~ "bb") (and #\c))) input))))
-    (is (equal "aabb" (text (parse (times-2 (or (~ "aa") (~ "bb")))           input))))
-    (is (equal "aabb" (text (parse (times-2 (or (~ "aa") (~ "bb") (and #\c))) input))))
-    (is (equal "aabb" (text (parse (times-4 (or (~ #\a) (~ #\b)))             input))))
-    (is (equal "aabb" (text (parse (times-4 (or (~ #\a) (~ #\b) (and #\c)))   input))))
-    (is (equal "AABB" (text (parse (times-4 (or (~ #\A) (~ #\B)))             input))))
-    (is (equal "AABB" (text (parse (times-4 (or (~ #\A) (~ #\B) (and #\c)))   input))))
-    (is (equal "aaBB" (text (parse (times-4 (or (~ #\a) (~ #\B)))             input))))
-    (is (equal "aaBB" (text (parse (times-4 (or (~ #\a) (~ #\B) (and #\c)))   input))))))
+      (signals esrap-parse-error (times-4 (parse '(or #\a #\b) input)))
+      (signals esrap-parse-error (times-4 (parse '(or #\a #\b (and #\c)) input)))
+      (signals esrap-parse-error (times-2 (parse '(or "aa" "bb") input)))
+      (signals esrap-parse-error (times-2 (parse '(or "aa" "bb" (and #\c)) input))))
+    (is (equal "aabb" (text (times-2 (parse '(or (~ "aa") (~ "bb"))           input)))))
+    (is (equal "aabb" (text (times-2 (parse '(or (~ "aa") (~ "bb") (and #\c)) input)))))
+    (is (equal "aabb" (text (times-2 (parse '(or (~ "aa") (~ "bb"))           input)))))
+    (is (equal "aabb" (text (times-2 (parse '(or (~ "aa") (~ "bb") (and #\c)) input)))))
+    (is (equal "aabb" (text (times-4 (parse '(or (~ #\a) (~ #\b))             input)))))
+    (is (equal "aabb" (text (times-4 (parse '(or (~ #\a) (~ #\b) (and #\c))   input)))))
+    (is (equal "AABB" (text (times-4 (parse '(or (~ #\A) (~ #\B))             input)))))
+    (is (equal "AABB" (text (times-4 (parse '(or (~ #\A) (~ #\B) (and #\c))   input)))))
+    (is (equal "aaBB" (text (times-4 (parse '(or (~ #\a) (~ #\B))             input)))))
+    (is (equal "aaBB" (text (times-4 (parse '(or (~ #\a) (~ #\B) (and #\c))   input)))))))
 
 (test-both-modes parse.negation
   "Test negation in rules."
@@ -605,6 +613,14 @@
     (test-case "Foo"    '(+ (not "Baz"))            "FooBazBar")
     (test-case "FooBaz" '(+ (not "Bar"))            "FooBazBar")
     (test-case "Foo"    '(+ (not (or "Bar" "Baz"))) "FooBazBar")))
+
+(test-both-modes parse.compiler-macro
+  "Test `parse' compiler-macro."
+  ;; Make sure the `parse' compiler-macro applies `constantp'
+  ;; correctly.
+  (macrolet ((times-2 (expr)
+               `'(and ,expr ,expr)))
+    (is (equal '("a" "a") (parse (times-2 #\a) "aa")))))
 
 ;;; Test around
 
