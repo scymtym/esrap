@@ -707,7 +707,7 @@
   "Apply composed transforms to parse result."
   (is (eql 1 (parse 'multiple-transforms.1 "a1c"))))
 
-(test-both-modes multiple-transforms.invalid
+(test multiple-transforms.invalid
   "Test DEFRULE's behavior for invalid transforms."
   (dolist (form '((defrule multiple-transforms.2 #\1
                     (:text t)
