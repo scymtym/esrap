@@ -131,6 +131,14 @@
        (typep (result-expression result) 'predicate)
        (successful-parse-p (result-detail result))))
 
+(defun result-trivial-predicate-p (result)
+  (and (typep (result-expression result) 'predicate)
+       (expression-case (second (result-expression result))
+         ((character character-ranges string terminal)
+          t)
+         (t
+          nil))))
+
 (declaim (ftype (function (list &optional input-position)
                           (values input-position &optional))
                 max-of-result-positions))
@@ -239,11 +247,11 @@
                ;; Treat results produced by inactive rules as if the
                ;; rule was not part of the grammar.
                (unless (inactive-rule-p result)
-                 ;; Do not recurse into results for negation-ish and
-                 ;; predicate expressions.
+                 ;; Do not recurse into results for negation-ish
+                 ;; expressions.
                  (expression-case (result-expression result)
-                   ((! not predicate) (process-leaf-result result))
-                   (t                 (process-inner-result result recurse)))))
+                   ((! not) (process-leaf-result result))
+                   (t       (process-inner-result result recurse)))))
              (map-max-results (node)
                (destructuring-bind (position result children) node
                  (declare (ignore position))
@@ -261,9 +269,15 @@
   (let ((function (ensure-function function)))
     (map-max-results (lambda (result recurse)
                        (declare (type function recurse))
-                       (when (not (funcall recurse))
-                         (funcall function result))
-                       result)
+                       ;; In addition to actual leafs, treat
+                       ;; unsatisfied predicate results or trivial
+                       ;; predicates as leafs (the latter are one
+                       ;; level above leafs anyway and allow for
+                       ;; better "expected" messages).
+                       (when (or (result-unsatisfied-predicate-p result)
+                                 (result-trivial-predicate-p result)
+                                 (not (funcall recurse)))
+                         (funcall function result)))
                      result)))
 
 (declaim (inline flattened-children))
@@ -297,6 +311,12 @@
       (declare (type function recurse))
       (let ((children (flattened-children recurse)))
         (cond
+          ;; unsatisfied predicate result => collect into the result.
+          ;;
+          ;; This suppresses children of RESULT. The actual context
+          ;; will normally be a nonterminal result above RESULT.
+          ((result-unsatisfied-predicate-p result)
+           (list result))
           ;; nonterminal with a single child => return the child.
           ((and (length= 1 children)
                 (or (result-nonterminal-p (first children))
@@ -369,6 +389,9 @@
      (lambda (result recurse)
        (let ((children (flattened-children recurse)))
          (cond
+           ;; Unsatisfied predicate result => return RESULT.
+           ((result-unsatisfied-predicate-p result)
+            (list result))
            ;; No children => certainly no fork in ancestors => return
            ;; RESULT.
            ((null children)

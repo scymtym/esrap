@@ -155,6 +155,12 @@
 (defun not-space (char)
   (not (eql #\space char)))
 
+(defun even-length-p (productions)
+  (evenp (length productions)))
+
+(defrule oddity
+    (and #\a (or #\c (even-length-p (+ oddity))) #\b))
+
 ;;; Utility rules
 
 (defrule whitespace (+ (or #\space #\tab #\newline))
@@ -556,7 +562,26 @@
                                 "While parsing FUNCTION-TERMINALS.INTEGER."
                                 "Expected:"
                                 "a string that can be parsed by the function"))
-    (parse 'function-terminals.integer "(1 2")))
+    (parse 'function-terminals.integer "(1 2"))
+  ;; Failing nested semantic predicates.
+  (signals-esrap-error ("aacbb" esrap-parse-error 1
+                               ("At" "^ (Line 1, Column 1, Position 1)"
+                                "In context ODDITY:"
+                                "While parsing ODDITY."
+                                "The production" "((\"a\" \"c\" \"b\"))"
+                                "does not satisfy the predicate" "EVEN-LENGTH-P"
+                                "Expected:"
+                                "the character a"))
+    (parse 'oddity "aacbb"))
+  (signals-esrap-error ("aaacbbb" esrap-parse-error 2
+                               ("At" "^ (Line 1, Column 2, Position 2)"
+                                "In context ODDITY:"
+                                "While parsing ODDITY."
+                                "The production" "((\"a\" \"c\" \"b\"))"
+                                "does not satisfy the predicate" "EVEN-LENGTH-P"
+                                "Expected:"
+                                "the character a"))
+    (parse 'oddity "aaacbbb")))
 
 (test-both-modes parse.string
   "Test parsing an arbitrary string of a given length."
