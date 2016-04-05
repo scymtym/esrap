@@ -56,7 +56,8 @@
                       "~@<The string ~S does not occur in ~S after ~
                        position ~D.~@:>"
                       message report start)
-                  (setf start position)))
+                  (when position
+                    (setf start position))))
               messages)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
