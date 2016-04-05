@@ -545,10 +545,8 @@
   ;; Rule not active at subexpression-level.
   (signals-esrap-error ("ffoo" esrap-parse-error 1
                                ("At" "^ (Line 1, Column 1, Position 1)"
-                                "In context CONDITION.NEVER-ACTIVE:"
-                                "While parsing CONDITION.NEVER-ACTIVE."
-                                "Problem"
-                                "Rule ESRAP-TESTS::CONDITION.NEVER-ACTIVE is not active"))
+                                "In context (AND \"f\" CONDITION.NEVER-ACTIVE):"
+                                "While parsing (AND \"f\" CONDITION.NEVER-ACTIVE). Expected:"))
     (parse '(and "f" condition.never-active) "ffoo"))
 
   ;; Failing function terminal.

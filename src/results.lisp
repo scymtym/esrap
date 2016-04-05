@@ -236,11 +236,14 @@
                    ((not (successful-parse-p result))
                     (process-leaf-result result)))))
              (process-result (result recurse)
-               ;; Do not recurse into results for negation-ish and
-               ;; predicate expressions.
-               (expression-case (result-expression result)
-                 ((! not predicate) (process-leaf-result result))
-                 (t                 (process-inner-result result recurse))))
+               ;; Treat results produced by inactive rules as if the
+               ;; rule was not part of the grammar.
+               (unless (inactive-rule-p result)
+                 ;; Do not recurse into results for negation-ish and
+                 ;; predicate expressions.
+                 (expression-case (result-expression result)
+                   ((! not predicate) (process-leaf-result result))
+                   (t                 (process-inner-result result recurse)))))
              (map-max-results (node)
                (destructuring-bind (position result children) node
                  (declare (ignore position))
