@@ -240,14 +240,17 @@ Following OPTIONS can be specified:
              (when value
                (set-transform '#'identity/bounds '#'identity)))
             ((:lambda lambda-list &body forms)
-             (multiple-value-bind (lambda-list start end ignore)
+             (multiple-value-bind (lambda-list* start end ignore)
                  (parse-lambda-list-maybe-containing-&bounds lambda-list)
                (declare (type list ignore))
+               (check-lambda-list lambda-list*
+                                  '(or (:required 1) (:optional 1))
+                                  :report-lambda-list lambda-list)
                (apply #'set-transform
-                      `(lambda (,@lambda-list ,start ,end)
+                      `(lambda (,@lambda-list* ,start ,end)
                          (declare (ignore ,@ignore))
                          ,@forms)
-                      `(lambda (,@lambda-list) ,@forms)
+                      `(lambda ,lambda-list* ,@forms)
                       (unless (length= 2 ignore)
                         (list option
                               (set-difference (list start end) ignore))))))
@@ -268,9 +271,10 @@ Following OPTIONS can be specified:
                      (destructuring-bind ,lambda-list ,production
                        ,@forms))))))
             ((:around lambda-list &body forms)
-             (multiple-value-bind (lambda-list start end ignore)
+             (multiple-value-bind (lambda-list* start end ignore)
                  (parse-lambda-list-maybe-containing-&bounds lambda-list)
-               (assert (null lambda-list))
+               (check-lambda-list
+                lambda-list* '() :report-lambda-list lambda-list)
                (setf around `(lambda (,start ,end transform)
                                (declare (ignore ,@ignore)
                                         (function transform))

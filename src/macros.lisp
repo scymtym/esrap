@@ -88,3 +88,61 @@ for use with IGNORE."
       (check-type start symbol)
       (check-type end symbol)
       (values lambda-list start end gensyms))))
+
+(defun check-lambda-list (lambda-list spec
+                          &key
+                          (report-lambda-list lambda-list))
+  (multiple-value-bind
+        (required* optional* rest* keyword* allow-other-keys-p auxp keyp)
+      (parse-ordinary-lambda-list lambda-list)
+    (labels ((fail (expected actual)
+               (let ((expected (ensure-list expected))
+                     (actual   (ensure-list actual)))
+                 (error "~@<Expected a lambda-list ~?, but ~S ~?.~@:>"
+                        (first expected) (rest expected)
+                        report-lambda-list
+                        (first actual) (rest actual))))
+             (check-section (section expected actual)
+               (typecase expected
+                 ((eql nil)
+                  (when actual
+                    (fail (list "without ~A parameters" section)
+                          (list "has ~A parameters" section))))
+                 ((eql t)
+                  (unless actual
+                    (fail (list "with ~A parameters" section)
+                          (list "has no ~A parameters" section))))
+                 (integer
+                  (unless (length= expected actual)
+                    (fail (list "with ~D ~A parameter~:*~:P" expected section)
+                          (list "has ~D ~A parameter~:*~:P"
+                                (length actual) section))))))
+             (check-binary (name expected actual)
+               (when (member expected '(t nil))
+                 (unless (eq expected (when actual t))
+                   (fail (list "~:[without~;with~] ~A" expected name)
+                         (list "~:[has no~;has~] ~A" actual name)))))
+             (check-simple-spec (&key required optional rest
+                                      keyword allow-other-keys aux key)
+               (check-section "required"         required         required*)
+               (check-section "optional"         optional         optional*)
+               (check-binary  '&rest             rest             rest*)
+               (check-section "keyword"          keyword          keyword*)
+               (check-binary  '&allow-other-keys allow-other-keys allow-other-keys-p)
+               (check-section "aux"              aux              auxp)
+               (check-binary  '&key              key              keyp))
+             (check-spec (spec)
+               (typecase spec
+                 ((cons (eql or))
+                  (loop :with errors = ()
+                     :for sub-spec :in (rest spec)
+                     :do (handler-case
+                             (progn
+                               (check-spec sub-spec)
+                               (return))
+                           (error (condition)
+                             (push condition errors)))
+                     :finally (error "~@<~{~A~^~@:_~}~@:>" errors)))
+                 (list
+                  (apply #'check-simple-spec spec)))))
+      (check-spec spec))))

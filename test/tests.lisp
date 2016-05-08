@@ -138,7 +138,29 @@
                   (:when foo)
                   (:when bar)))
     (test-case '(defrule multiple-expressions-in-when "foo"
-                  (:when foo bar)))))
+                  (:when foo bar)))
+
+    (test-case '(defrule lambda-lambda-list "foo"
+                 (:lambda (a b))))
+    (test-case '(defrule lambda-lambda-list "foo"
+                 (:lambda (&optional a b))))
+    (test-case '(defrule lambda-lambda-list "foo"
+                 (:lambda (&rest a))))
+    (test-case '(defrule lambda-lambda-list "foo"
+                 (:lambda (&key a))))
+    (test-case '(defrule lambda-lambda-list "foo"
+                 (:lambda (&key &allow-other-keys))))
+
+    (test-case '(defrule around-lambda-list "foo"
+                 (:around (a))))
+    (test-case '(defrule around-lambda-list "foo"
+                 (:around (&optional a))))
+    (test-case '(defrule around-lambda-list "foo"
+                 (:around (&rest a))))
+    (test-case '(defrule around-lambda-list "foo"
+                 (:around (&key a))))
+    (test-case '(defrule around-lambda-list "foo"
+                 (:around (&key &allow-other-keys))))))
 
 ;;; A few semantic predicates
 
