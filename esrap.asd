@@ -54,6 +54,7 @@
                                    (:file "results")
                                    (:file "cache")
                                    (:file "evaluator")
+                                   (:file "macros")
                                    (:file "interface")
                                    (:file "editor-support")))
 
