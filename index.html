@@ -605,8 +605,11 @@ rule is not attached to any nonterminal.
 <a name="Function-trace_002drule"></a><dl>
 <dt><a name="index-trace_002drule"></a>Function: <strong>trace-rule</strong> <em>symbol &amp;key recursive break condition</em></dt>
 <dd><a name="index-trace_002drule-1"></a>
-<p>Turn on tracing of nonterminal <code>symbol</code>. If <code>recursive</code> is true, turn
-on tracing for the whole grammar rooted at <code>symbol</code>.
+<p>Turn on tracing of nonterminal <code>symbol</code>.
+</p>
+<p>If <code>recursive</code> is true, turn on tracing for the whole grammar rooted at
+<code>symbol</code>. If <code>recursive</code> is a positive integer, turn on tracing for all
+rules reachable from the nonterminal <code>symbol</code> in that number of steps.
 </p>
 <p>If <code>break</code> is true, break is entered when the rule is invoked.
 </p>
@@ -628,7 +631,9 @@ rule.
 <dd><a name="index-untrace_002drule-1"></a>
 <p>Turn off tracing of nonterminal <code>symbol</code>.
 </p>
-<p>If <code>recursive</code> is true, untraces the whole grammar rooted at <code>symbol</code>.
+<p>If <code>recursive</code> is true, turn off tracing for the whole grammar rooted at
+<code>symbol</code>. If <code>recursive</code> is a positive integer, turn off tracing for all
+rules reachable from the nonterminal <code>symbol</code> in that number of steps.
 </p>
 <p><code>break</code> and <code>condition</code> are ignored, and are provided only for symmetry
 with <code>trace-rule</code>.
