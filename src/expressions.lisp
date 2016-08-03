@@ -128,35 +128,39 @@ but clause heads designate kinds of expressions instead of types. See
             (rec (second expression))))))
     (rec expression)))
 
-(defun %expression-dependencies (expression seen)
-  (expression-case expression
-    ((character string character-ranges function terminal)
-     seen)
-    (nonterminal
-     (if (member expression seen :test #'eq)
-         seen
-         (let ((rule (find-rule expression))
-               (seen (cons expression seen)))
-           (if rule
-               (%expression-dependencies (rule-expression rule) seen)
-               seen))))
-    ((and or)
-     (dolist (subexpr (cdr expression) seen)
-       (setf seen (%expression-dependencies subexpr seen))))
-    ((not * + ? & ! predicate)
-     (%expression-dependencies (second expression) seen))))
+(defun %expression-dependencies (expression)
+  (labels ((rec (expression result)
+             (expression-case expression
+               ((character string character-ranges function terminal)
+                result)
+               (nonterminal
+                (if (member expression result :test #'eq)
+                    result
+                    (let ((rule (find-rule expression))
+                          (result (list* expression result)))
+                      (if rule
+                          (rec (rule-expression rule) result)
+                          result))))
+               ((and or)
+                (reduce #'rec (rest expression)
+                        :initial-value result :from-end t))
+               ((not * + ? & ! predicate)
+                (rec (second expression) result)))))
+    (rec expression '())))
 
-(defun %expression-direct-dependencies (expression seen)
-  (expression-case expression
-    ((character string character-ranges function terminal)
-     seen)
-    (nonterminal
-     (cons expression seen))
-    ((and or)
-     (dolist (subexpr (rest expression) seen)
-       (setf seen (%expression-direct-dependencies subexpr seen))))
-    ((not * + ? & ! predicate)
-     (%expression-direct-dependencies (second expression) seen))))
+(defun %expression-direct-dependencies (expression)
+  (labels ((rec (expression result)
+             (expression-case expression
+               ((character string character-ranges function terminal)
+                result)
+               (nonterminal
+                (list* expression result))
+               ((and or)
+                (reduce #'rec (rest expression)
+                        :initial-value result :from-end t))
+               ((not * + ? & ! predicate)
+                (rec (second expression) result)))))
+    (rec expression '())))
 
 (defun expression-start-terminals (expression)
   "Return a list of terminals or tree of expressions with which a text

@@ -173,11 +173,11 @@ is not attached to any nonterminal."
 nonterminal symbols, and secondary value is a list of undefined nonterminal
 symbols."
   (sort-dependencies
-   (rule-symbol rule) (%expression-dependencies (rule-expression rule) nil)))
+   (rule-symbol rule) (%expression-dependencies (rule-expression rule))))
 
 (defun rule-direct-dependencies (rule)
   (sort-dependencies
-   (rule-symbol rule) (%expression-direct-dependencies (rule-expression rule) nil)))
+   (rule-symbol rule) (%expression-direct-dependencies (rule-expression rule))))
 
 (defun %rule-direct-dependencies (rule)
-  (delete (rule-symbol rule) (%expression-direct-dependencies (rule-expression rule) nil)))
+  (delete (rule-symbol rule) (%expression-direct-dependencies (rule-expression rule))))
