@@ -219,14 +219,14 @@
 (defun map-max-results (function result)
   ;; Process result tree in two passes:
   ;;
-  ;; 1. Use MAP-RESULTS to visit result processing each with either
-  ;;    PROCESS-{LEAF or INNER}-RESULT, transforming into a tree with
-  ;;    nodes of the form
+  ;; 1. Use MAP-RESULTS to visit results, processing each with either
+  ;;    PROCESS-{LEAF or INNER}-RESULT, and collecting results into a
+  ;;    tree with nodes of the form
   ;;
   ;;      (RECURSIVE-MAX-POSITION RESULT LIST-OF-CHILDREN)
   ;;
   ;; 2. Use local function MAP-MAX-RESULTS to traverse the tree
-  ;;    calling FUNCTION on each RESULT.
+  ;;    calling FUNCTION on the RESULT of each node.
   (let ((function (ensure-function function)))
     (labels ((process-leaf-result (result)
                (list (result-position result) result '()))
