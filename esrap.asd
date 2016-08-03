@@ -18,7 +18,7 @@
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (defsystem :esrap
-  :version          "0.13"
+  :version          "0.14"
   :description      "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
   :long-description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp.
 
@@ -68,6 +68,7 @@
   :in-order-to      ((test-op (test-op :esrap-tests))))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
+  ;; Since version 0.14
   (pushnew :esrap.lookahead *features*)
   (pushnew :esrap.lookbehind *features*)
   ;; Since version 0.13
