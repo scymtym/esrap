@@ -122,8 +122,10 @@ but clause heads designate kinds of expressions instead of types. See
            (character-ranges
             (unless (every (of-type 'character-range) (rest expression))
               (invalid-expression-error expression)))
-           ((and or not * + ? & ! predicate)
-            (mapc #'rec (rest expression))))))
+           ((and or)
+            (mapc #'rec (rest expression)))
+           ((not * + ? & ! predicate)
+            (rec (second expression))))))
     (rec expression)))
 
 (defun %expression-dependencies (expression seen)
