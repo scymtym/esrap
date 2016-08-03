@@ -811,55 +811,57 @@
     (test-case '(+ #\a)                            (#\a))))
 
 (test describe-terminal.smoke
-  (macrolet
-      ((test-case (terminal expected)
-         `(is (string= ,expected (with-output-to-string (stream)
-                                   (with-standard-io-syntax
-                                     (let ((*print-pretty* t))
-                                       (pprint-logical-block (stream nil)
-                                         (describe-terminal ,terminal stream)))))))))
-    (test-case 'character  "any character")
-    (test-case '(string 5) "a string of length 5")
-    (test-case #\a         (format nil "the character a (~A)" (char-name #\a)))
-    (test-case #\Space     "the character Space")
-    (test-case '(~ #\a)    (format nil "the character a (~A), disregarding case"
-                                   (char-name #\a)))
-    (test-case "f"         (format nil "the character f (~A)" (char-name #\f)))
-    (test-case "foo"       "the string \"foo\"")
-    (test-case '(~ "foo")  "the string \"foo\", disregarding case")
-    (test-case '(character-ranges #\a)
-               "a character in [a]")
-    (test-case '(character-ranges (#\a #\z))
-               "a character in [a-z]")
-    (test-case '#'parse-integer
-               "a string that can be parsed by the function PARSE-INTEGER")
-    (test-case '(digit-char-p (character))
-               "any character satisfying DIGIT-CHAR-P")
-    (test-case '(digit-char-p ((~ "foo")))
-               "the string \"foo\", disregarding case satisfying DIGIT-CHAR-P")
-    (test-case '(digit-char-p ("aa" "bb"))
-               "    the string \"aa\"
+  (flet ((describe-it (terminal)
+           (with-output-to-string (stream)
+             (with-standard-io-syntax
+               (let ((*print-pretty* t))
+                 (pprint-logical-block (stream nil)
+                   (describe-terminal terminal stream)))))))
+    (macrolet
+        ((test-case (terminal expected)
+           `(is (string= ,expected (describe-it ,terminal)))))
+      (test-case 'character  "any character")
+      (test-case '(string 5) "a string of length 5")
+      (test-case #\a         (format nil "the character a (~A)" (char-name #\a)))
+      (test-case #\Space     "the character Space")
+      (test-case '(~ #\a)    (format nil "the character a (~A), disregarding case"
+                                     (char-name #\a)))
+      (test-case "f"         (format nil "the character f (~A)" (char-name #\f)))
+      (test-case "foo"       "the string \"foo\"")
+      (test-case '(~ "foo")  "the string \"foo\", disregarding case")
+      (test-case '(character-ranges #\a)
+                 "a character in [a]")
+      (test-case '(character-ranges (#\a #\z))
+                 "a character in [a-z]")
+      (test-case '#'parse-integer
+                 "a string that can be parsed by the function PARSE-INTEGER")
+      (test-case '(digit-char-p (character))
+                 "any character satisfying DIGIT-CHAR-P")
+      (test-case '(digit-char-p ((~ "foo")))
+                 "the string \"foo\", disregarding case satisfying DIGIT-CHAR-P")
+      (test-case '(digit-char-p ("aa" "bb"))
+                 "    the string \"aa\"
  or the string \"bb\"
 satisfying DIGIT-CHAR-P")
-    (test-case '(digit-char-p ("aa" "bb" "cc"))
-               "    the string \"aa\"
+      (test-case '(digit-char-p ("aa" "bb" "cc"))
+                 "    the string \"aa\"
  or the string \"bb\"
  or the string \"cc\"
 satisfying DIGIT-CHAR-P")
-    (test-case '(not (#\a #\b))
-               (format nil "anything but     the character a (~A)
+      (test-case '(not (#\a #\b))
+                 (format nil "anything but     the character a (~A)
              and the character b (~A)"
-                       (char-name #\a) (char-name #\b)))
-    (test-case '(not (character)) "<end of input>")
-    (test-case '(! (#\a #\b))
-               (format nil "anything but     the character a (~A)
+                         (char-name #\a) (char-name #\b)))
+      (test-case '(not (character)) "<end of input>")
+      (test-case '(! (#\a #\b))
+                 (format nil "anything but     the character a (~A)
              and the character b (~A)"
-                       (char-name #\a) (char-name #\b)))
-    (test-case '(! ((keyword? (#\_ (alpha-char-p (character))))))
-               (format nil "anything but     the character _ (~A)
+                         (char-name #\a) (char-name #\b)))
+      (test-case '(! ((keyword? (#\_ (alpha-char-p (character))))))
+                 (format nil "anything but     the character _ (~A)
               or any character satisfying ALPHA-CHAR-P
              satisfying ~A"
-                       (char-name #\_) 'keyword?))))
+                         (char-name #\_) 'keyword?)))))
 
 (test describe-terminal.condition
   (signals error (describe-terminal '(and #\a #\b))))
