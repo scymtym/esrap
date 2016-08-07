@@ -40,8 +40,9 @@ support for left-recursive rules
 functions as terminals
 @end itemize
 
-Esrap is maintained by @email{nikodemus@@random-state.net, Nikodemus
-Siivola} and @email{jmoringe@@uni-bielefeld.de, Jan Moringen}.
+Esrap was originally written by @email{nikodemus@@random-state.net,
+Nikodemus Siivola}. It is now developed and maintained by
+@email{jmoringe@@uni-bielefeld.de, Jan Moringen}.
 
 Esrap is maintained in Git:
 @example
