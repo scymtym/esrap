@@ -1214,6 +1214,4 @@ bla
 ;;; Test runner
 
 (defun run-tests ()
-  (let ((results (run 'esrap)))
-    (explain! results)
-    (results-status results)))
+  (run! 'esrap))

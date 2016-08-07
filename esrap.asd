@@ -89,7 +89,8 @@
                 "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>")
   :maintainer  "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
   :licence     "MIT"
-  :depends-on  (:esrap :fiveam)
+  :depends-on  (:esrap
+                (:version :fiveam "1.3"))
   :serial      t
   :components  ((:module "examples"
                  :components ((:file "left-recursion")
