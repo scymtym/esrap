@@ -273,6 +273,28 @@ the subexpression produces.
 succeed, and <em>consumes no input</em>. A not-followed-by predicate
 produces <code>nil</code>.
 </p>
+<a name="Lookbehind"></a>
+<h3 class="heading">Lookbehind</h3>
+<div class="lisp">
+<pre class="lisp">(&lt; amount subexpression)
+</pre></div>
+
+<p>A lookbehind succeeds if <code>subexpression</code> succeeds at the input
+position reached by moving backward <code>amount</code>, a positive integer,
+characters from the current position and <em>consumes no input</em>. A
+lookbehind produces whatever <code>subexpression</code> produces.
+</p>
+<a name="Lookahead"></a>
+<h3 class="heading">Lookahead</h3>
+<div class="lisp">
+<pre class="lisp">(&gt; amount subexpression)
+</pre></div>
+
+<p>A lookahead succeeds if <code>subexpression</code> succeeds at the input
+position reached by moving forward <code>amount</code>, a positive integer,
+characters from the current position and <em>consumes no input</em>. A
+lookahead produces whatever <code>subexpression</code> produces.
+</p>
 <a name="Semantic-Predicates"></a>
 <h3 class="heading">Semantic Predicates</h3>
 <div class="lisp">
@@ -611,6 +633,14 @@ with <code>trace-rule</code>.
 <p>where <code>nested-elements</code> is the list of start terminals of the
      negated expression.
 </p>
+</li><li> <code>&lt;</code> and <code>&gt;</code> expressions are represented as
+
+<p>({&lt;,&gt;} <code>offset</code> NESTED-ELEMENTS)
+</p>
+<p>where <code>offset</code> is a positive integer and <code>nested-elements</code> is the
+     list of start terminals of the expression that should match
+     <code>offset</code> characters backward/forward from the current position.
+</p>
 </li></ul>
 <p>The (outermost) list is sorted likes this:
 </p>
@@ -632,6 +662,7 @@ with <code>trace-rule</code>.
 
      (PREDICATE-NAME TERMINALS)
      ({not,!} TERMINALS)
+     ({&lt;,&gt;} OFFSET TERMINALS)
 </pre></div>
 
 <div class="lisp">
