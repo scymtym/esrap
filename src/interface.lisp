@@ -57,9 +57,9 @@ happen when :raw t."
             sense.~@:>"
            (list :junk-allowed junk-allowed :raw raw)))
   (let* ((end (or end (length text)))
-         (*cache* (make-cache))
-         (*heads* (make-heads))
+         (*context* (make-context))
          (result (eval-expression expression text start end)))
+    (declare (dynamic-extent *context*))
     (if raw
         result
         (process-parse-result result text start end junk-allowed))))
@@ -76,9 +76,9 @@ happen when :raw t."
                                     ,@(if rawp '(raw))
                                     ,@(if junk-allowed-p '(junk-allowed)))
                    (let* ((end (or end (length text)))
-                          (*cache* (make-cache))
-                          (*heads* (make-heads))
+                          (*context* (make-context))
                           (,result-var (funcall ,expr-fun text start end)))
+                     (declare (dynamic-extent *context*))
                      ,body))
                  ,text ,@(remove-from-plist arguments :raw))))))
    (cond

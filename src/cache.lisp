@@ -28,7 +28,7 @@
 ;;; For now we just use EQUAL hash-tables, but a specialized
 ;;; representation would probably pay off.
 
-(defvar *cache*)
+(declaim (inline make-cache get-cached (setf get-cached)))
 
 (defun make-cache ()
   (make-hash-table :test #'equal))
@@ -49,7 +49,9 @@
   ;; the current round of "seed parse" growing
   (eval-set '() :type list))
 
-(defvar *heads*)
+;;; Left-recursion support
+
+(declaim (inline make-heads get-head (setf get-head)))
 
 (defun make-heads ()
   (make-hash-table :test #'equal))
@@ -83,15 +85,39 @@
                (get-cached rule position cache) result))
        result))))
 
-(defvar *nonterminal-stack* nil)
+;;; Context
+
+(declaim (inline make-context
+                 context-cache context-heads
+                 context-nonterminal-stack (setf context-nonterminal-stack)))
+(defstruct (context
+             (:constructor make-context ()))
+  (cache             (make-cache) :type hash-table :read-only t)
+  (heads             (make-heads) :type hash-table :read-only t)
+  (nonterminal-stack '()          :type list))
+
+(declaim (type context *context*))
+(defvar *context* (make-context))
+
+(defmacro with-pushed-nonterminal ((symbol context) &body body)
+  (with-gensyms (previous cell)
+    (once-only (context)
+      `(let* ((,previous (context-nonterminal-stack ,context))
+              (,cell     (list* ,symbol ,previous)))
+         (declare (dynamic-extent ,cell))
+         (setf (context-nonterminal-stack ,context) ,cell)
+         (prog1
+             (progn ,@body)
+           (setf (context-nonterminal-stack ,context) ,previous))))))
 
 ;;; SYMBOL and POSITION must all lexical variables!
 (defmacro with-cached-result ((symbol position &optional (text nil)) &body forms)
-  (with-gensyms (cache heads result)
+  (with-gensyms (context cache heads result)
     `(flet ((do-it (position) ,@forms))
-       (let* ((,cache *cache*)
-              (,heads *heads*)
-              (,result (recall ,symbol ,position ,cache ,heads #'do-it)))
+       (let* ((,context *context*)
+              (,cache   (context-cache ,context))
+              (,heads   (context-heads ,context))
+              (,result  (recall ,symbol ,position ,cache ,heads #'do-it)))
          (cond
            ;; Found left-recursion marker in the cache. Depending on
            ;; *ERROR-ON-LEFT-RECURSION*, we either signal an error or
@@ -103,7 +129,8 @@
             (when (eq *on-left-recursion* :error)
               (left-recursion ,text ,position ,symbol
                               (reverse (mapcar #'left-recursion-result-rule
-                                               *nonterminal-stack*))))
+                                               (context-nonterminal-stack
+                                                ,context)))))
             ;; Otherwise, mark left recursion and fail this partial
             ;; parse.
             (let ((head (or (left-recursion-result-head ,result)
@@ -111,7 +138,7 @@
                                   (make-head :rule ,symbol)))))
               ;; Put this head into left recursion markers on the
               ;; stack. Add rules on the stack to the "involved set".
-              (dolist (item *nonterminal-stack*)
+              (dolist (item (context-nonterminal-stack ,context))
                 (when (eq (left-recursion-result-head item) head)
                   (return))
                 (setf (left-recursion-result-head item) head)
@@ -128,7 +155,7 @@
             ;; recursion and cache that.
             (let* ((result (make-left-recursion-result ,symbol))
                    (result1
-                    (let ((*nonterminal-stack* (cons result *nonterminal-stack*)))
+                    (with-pushed-nonterminal (result ,context)
                       (setf (get-cached ,symbol ,position ,cache)
                             result
                             (get-cached ,symbol ,position ,cache)

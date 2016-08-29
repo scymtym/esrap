@@ -1,7 +1,7 @@
 Esrap TODO
 
 * Optimizations
-** TODO Common special variable for cache and heads
+** DONE Common special variable for cache and heads
    As access to special variables can be slow, it may make sense to
    store =*cache*= and =*head*= in slots of a structure =context= and
    this structure in a new special variable =*context*=.
