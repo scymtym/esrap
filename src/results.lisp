@@ -80,6 +80,8 @@
 
 ;; This is placed in the cache as a place in which information
 ;; regarding left recursion can be stored temporarily.
+(declaim (inline make-left-recursion-result
+                 left-recursion-result-p))
 (defstruct (left-recursion-result
              (:include error-result)
              (:constructor make-left-recursion-result (expression))
