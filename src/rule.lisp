@@ -91,9 +91,7 @@
 (defun ensure-rule-cell (symbol)
   (check-type symbol nonterminal)
   ;; FIXME: Need to lock *RULES*.
-  (or (gethash symbol *rules*)
-      (setf (gethash symbol *rules*)
-            (make-rule-cell symbol))))
+  (ensure-gethash symbol *rules* (make-rule-cell symbol)))
 
 (defun delete-rule-cell (symbol)
   (remhash symbol *rules*))
@@ -115,7 +113,8 @@
 
 (defclass rule ()
   ((%symbol
-    :initform nil)
+    :initform nil
+    :reader rule-symbol)
    (%expression
     :initarg :expression
     :initform (required-argument :expression))
@@ -139,10 +138,9 @@
     :initform nil
     :reader rule-around)))
 
-(defun rule-symbol (rule)
-  "Returns the nonterminal associated with the RULE, or NIL of the rule
-is not attached to any nonterminal."
-  (slot-value rule '%symbol))
+(setf (documentation 'rule-symbol 'function)
+      "Returns the nonterminal associated with the RULE, or NIL if the
+rule is not attached to any nonterminal.")
 
 (defun detach-rule (rule)
   (dolist (dep (%rule-direct-dependencies rule))
