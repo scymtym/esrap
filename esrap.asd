@@ -100,7 +100,11 @@
 
                 (:module "test"
                  :serial t
-                 :components ((:file "tests")))))
+                 :components ((:file "package")
+                              (:file "util")
+                              (:file "tests")
+                              (:file "examples")
+                              (:file "readme")))))
 
 (defmethod perform ((operation test-op)
                     (system    (eql (find-system :esrap-tests))))
