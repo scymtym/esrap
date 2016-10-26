@@ -175,8 +175,8 @@
                   current)))
 
 (declaim (ftype (function (function result &key (:augment-inactive-rules t)) *)
-                map-results))
-(declaim (ftype (function (function result) *)
+                map-results)
+         (ftype (function (function result) *)
                 map-max-results map-max-leaf-results))
 
 ;;; Apply FUNCTION to RESULT and potentially all its ancestor results
