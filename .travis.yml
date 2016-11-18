@@ -19,6 +19,5 @@ script:
   - ./cl
       -S '(:source-registry (:directory "'$(pwd)'") :ignore-inherited-configuration)'
       -e '(load "quicklisp/setup.lisp")'
-      -e '(ql:register-local-projects)'
-      -e '(ql:quickload (list :esrap :esrap-tests))'
+      -e '(ql:quickload :esrap/tests)'
       '(or (esrap-tests:run-tests) (uiop:quit -1))'

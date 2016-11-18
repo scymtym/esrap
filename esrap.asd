@@ -65,7 +65,7 @@
                                    (:static-file "function-terminals.lisp")))
 
                      (:static-file "README.org"))
-  :in-order-to      ((test-op (test-op :esrap-tests))))
+  :in-order-to      ((test-op (test-op :esrap/tests))))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
   ;; Since version 0.15
@@ -85,7 +85,7 @@
   ;; For consistency with examples which contain (require :esrap).
   (provide :esrap))
 
-(defsystem :esrap-tests
+(defsystem :esrap/tests
   :description "Tests for ESRAP."
   :author      ("Nikodemus Siivola <nikodemus@random-state.net>"
                 "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>")
@@ -107,5 +107,5 @@
                               (:file "readme")))))
 
 (defmethod perform ((operation test-op)
-                    (system    (eql (find-system :esrap-tests))))
+                    (system    (eql (find-system :esrap/tests))))
   (funcall (intern "RUN-TESTS" :esrap-tests)))
