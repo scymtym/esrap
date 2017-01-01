@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<!-- Created by GNU Texinfo 6.1, http://www.gnu.org/software/texinfo/ -->
+<!-- Created by GNU Texinfo 6.3, http://www.gnu.org/software/texinfo/ -->
 <head>
 <title>Esrap</title>
 
@@ -73,6 +73,7 @@ supports
 </li><li> introspective facilities for development
 </li><li> support for left-recursive rules
 </li><li> functions as terminals
+</li><li> accurate, customizable parse error reports
 </li></ul>
 
 <p>Esrap was originally written by <a href="mailto:nikodemus@random-state.net">Nikodemus Siivola</a>. It is now developed and maintained by
@@ -452,7 +453,42 @@ appearance:
 </p>
 <p>This option can be used to safely track nesting depth, manage symbol
     tables or for other stack-like operations.
+</p>
+</li><li> (<code>:error-report</code> ( <code>t</code> | <code>nil</code> | <code>:context</code> | <code>:detail</code> ))
+
+<p>Defaults to <code>t</code> if not provided. Controls whether and how the rule
+    is used in parse error reports:
+</p>
+<ul>
+<li> <code>t</code>
+
+<p>The rule is used in parse error reports without
+      restriction (i.e. when describing the context of a failure as
+      well as listing failed rules and expected inputs).
+</p>
+</li><li> <code>nil</code>
+
+<p>The rule is not used in parse error reports in any capacity. In
+      particular, inputs expected by the rule are not mentioned.
+</p>
+<p>This value is useful for things like whitespace rules since
+      something like &quot;expected space, tab or newline&quot;, even if it
+      would have allowed the parser to continue for one character, is
+      rarely helpful.
+</p>
+</li><li> <code>:context</code>
+
+<p>The rule is used in the &quot;context&quot; part of parse error
+      reports. The rule is neither mentioned in the list of failed
+      rules nor are inputs expected by it.
+</p>
+</li><li> <code>:detail</code>
+
+<p>The rule is not used in the &quot;context&quot; part of parse error
+      reports, but can appear in the list of failed rules. Inputs
+      expected by the rule are mentioned as well.
 </p></li></ul>
+</li></ul>
 </dd></dl>
 <a name="Function-parse"></a><dl>
 <dt><a name="index-parse"></a>Function: <strong>parse</strong> <em>expression text &amp;key start end junk-allowed raw</em></dt>
@@ -555,11 +591,15 @@ symbols.
 <p>Modify <code>rule</code> to use <code>expression</code> as the parsing expression. The rule must be
 detached beforehand.
 </p></dd></dl>
-<a name="Function-rule_002dsymbol"></a><dl>
-<dt><a name="index-rule_002dsymbol"></a>Function: <strong>rule-symbol</strong> <em>rule</em></dt>
+<a name="Generic_002dFunction-rule_002dsymbol"></a><dl>
+<dt><a name="index-rule_002dsymbol"></a>Generic Function: <strong>rule-symbol</strong> <em>object</em></dt>
 <dd><a name="index-rule_002dsymbol-1"></a>
-<p>Returns the nonterminal associated with the <code>rule</code>, or <code>nil</code> of the rule
-is not attached to any nonterminal.
+<p>Returns the nonterminal associated with the <code>rule</code>, or <code>nil</code> if the
+rule is not attached to any nonterminal.
+</p></dd></dl>
+<a name="Method-rule_002dsymbol-_0028_0028rule-rule_0029_0029"></a><dl>
+<dt><a name="index-rule_002dsymbol-2"></a>Method: <strong>rule-symbol</strong> <em>(rule rule)</em></dt>
+<dd><p>automatically generated reader method
 </p></dd></dl>
 
 <a name="Function-trace_002drule"></a><dl>
@@ -595,7 +635,7 @@ with <code>trace-rule</code>.
 </p></dd></dl>
 
 <a name="Function-expression_002dstart_002dterminals"></a><dl>
-<dt><a name="index-expression_002dstart_002dterminals"></a>Function: <strong>expression-start-terminals</strong> <em>expression</em></dt>
+<dt><a name="index-expression_002dstart_002dterminals"></a>Function: <strong>expression-start-terminals</strong> <em>expression &amp;key when-rule-error-report</em></dt>
 <dd><a name="index-expression_002dstart_002dterminals-1"></a>
 <p>Return a list of terminals or tree of expressions with which a text
    parsable by <code>expression</code> can start.
@@ -636,6 +676,10 @@ with <code>trace-rule</code>.
    <code>3</code>. the <code>character</code> wildcard terminal
    <code>4</code>. semantic predicates
    <code>5</code>. everything else
+</p>
+<p>If supplied, <code>when-rule-error-report</code> restricts processing of
+   nonterminals to rules whose <code>:error-report</code> option is compatible with
+   the value of <code>when-rule-error-report</code>.
 </p></dd></dl>
 <a name="Function-describe_002dterminal"></a><dl>
 <dt><a name="index-describe_002dterminal"></a>Function: <strong>describe-terminal</strong> <em>terminal &amp;optional stream</em></dt>
