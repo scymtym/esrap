@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -31,6 +31,7 @@
                        tracing, setting breaks)
                      * left-recursive grammars
                      * functions as terminals
+                     * accurate, customizable parse error reports
 
                      See README.org and :homepage for more
                      information."
@@ -68,6 +69,8 @@
   :in-order-to      ((test-op (test-op :esrap/tests))))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
+  ;; Since version 0.16
+  ;; * DEFRULE accepts an :ERROR-REPORT option
   ;; Since version 0.15
   ;; * All transforms that support it, can access bounds via &BOUNDS.
   ;; Since version 0.14

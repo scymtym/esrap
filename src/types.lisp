@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -59,3 +59,33 @@ characters."
 
 (deftype predicate ()
   '(cons predicate-name (cons (not null) null)))
+
+;;; Rule-related types
+
+(deftype error-report-part ()
+  "Named part of a parse error report."
+  `(member :context :detail))
+
+(deftype rule-error-report ()
+  "Suitability of a rule for error report parts.
+
+In addition to the ERROR-REPORT-PART values, NIL indicates
+unsuitability for all error report parts, while T indicates
+suitability for all parts."
+  '(or (member t nil) error-report-part))
+
+(deftype rule-error-report-pattern ()
+  "ERROR-REPORT-PART or a list thereof."
+  '(or (member t nil) error-report-part (cons error-report-part)))
+
+(declaim (ftype (function (rule-error-report rule-error-report-pattern)
+                          (values boolean &optional))
+                error-report-behavior-suitable-for-report-part-p))
+(defun error-report-behavior-suitable-for-report-part-p
+    (query part-or-parts)
+  "Return true if QUERY is suitable for PART-OR-PARTS."
+  (when (or (eq query part-or-parts)
+            (eq query t)
+            (and (consp part-or-parts)
+                 (member query part-or-parts :test #'eq)))
+    t))

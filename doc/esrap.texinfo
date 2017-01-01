@@ -38,6 +38,8 @@ introspective facilities for development
 support for left-recursive rules
 @item
 functions as terminals
+@item
+accurate, customizable parse error reports
 @end itemize
 
 Esrap was originally written by @email{nikodemus@@random-state.net,

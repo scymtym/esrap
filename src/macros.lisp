@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -137,9 +137,11 @@ for use with IGNORE."
 (defun parse-defrule-options (options form)
   (let ((transform nil)
         (around nil)
+        (error-report t)
         (guard t)
         (condition t)
-        (guard-seen nil))
+        (guard-seen nil)
+        (error-report-seen nil))
     (dolist (option options)
       (flet ((set-guard (expr test)
                (if guard-seen
@@ -191,8 +193,21 @@ for use with IGNORE."
                                       (function transform))
                              (flet ((call-transform ()
                                       (funcall transform)))
-                               ,@forms))))))))
-    (values transform around guard condition)))
+                               ,@forms)))))
+          ((:error-report behavior)
+           (unless (typep behavior 'rule-error-report)
+             (error 'simple-type-error
+                    :datum behavior
+                    :expected-type 'rule-error-report
+                    :format-control "~@<The value ~S is not a valid ~
+                                     argument to the ~S option.~@:>"
+                    :format-arguments (list behavior :error-report)))
+           (if error-report-seen
+               (error "~@<Multiple ~S options in ~S:~@:_~2@T~S~@:>"
+                      :error-report 'defrule form)
+               (setf error-report-seen t
+                     error-report behavior))))))
+    (values transform around guard condition error-report)))
 
 (defun expand-transforms (transforms)
   (labels

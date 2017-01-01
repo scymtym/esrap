@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -141,6 +141,14 @@
          (t
           nil))))
 
+(declaim (ftype (function (result rule-error-report-pattern)
+                          (values boolean &optional))
+                result-suitable-for-report-part-p))
+(defun result-suitable-for-report-part-p (result part)
+  (when (result-nonterminal-p result)
+    (rule-suitable-for-report-part-p
+     (result-expression result) part)))
+
 (declaim (ftype (function (list &optional input-position)
                           (values input-position &optional))
                 max-of-result-positions))
@@ -174,9 +182,10 @@
                                       (result-position previous))
                   current)))
 
-(declaim (ftype (function (function result &key (:augment-inactive-rules t)) *)
+(declaim (ftype (function (function result &key (:augment-inactive-rules t)))
                 map-results)
-         (ftype (function (function result) *)
+         (ftype (function (function result
+                           &key (:when-error-report rule-error-report-pattern)))
                 map-max-results map-max-leaf-results))
 
 ;;; Apply FUNCTION to RESULT and potentially all its ancestor results
@@ -218,7 +227,11 @@
 ;;; and PREDICATE expressions since failed parses among their
 ;;; respective ancestors are not causes of a failed (or successful)
 ;;; parse in the usual sense.
-(defun map-max-results (function result)
+;;;
+;;; Also restrict processing of nonterminals according to their
+;;; :ERROR-REPORT option and WHEN-ERROR-REPORT.
+(defun map-max-results (function result
+                        &key (when-error-report nil when-error-report-p))
   ;; Process result tree in two passes:
   ;;
   ;; 1. Use MAP-RESULTS to visit results, processing each with either
@@ -249,11 +262,22 @@
                ;; Treat results produced by inactive rules as if the
                ;; rule was not part of the grammar.
                (unless (inactive-rule-p result)
-                 ;; Do not recurse into results for negation-ish
-                 ;; expressions.
-                 (expression-case (result-expression result)
-                   ((! not < >) (process-leaf-result result))
-                   (t           (process-inner-result result recurse)))))
+                 (let ((expression (result-expression result)))
+                   (expression-case expression
+                     ;; Do not recurse into results for negation-ish
+                     ;; expressions.
+                     ((! not < >)
+                      (process-leaf-result result))
+                     ;; If the associated rule is a nonterminal, maybe
+                     ;; suppress the result depending on the error-report
+                     ;; slot of the rule.
+                     (nonterminal
+                      (when (or (not when-error-report-p)
+                                (rule-suitable-for-report-part-p
+                                 expression when-error-report))
+                        (process-inner-result result recurse)))
+                     (t
+                      (process-inner-result result recurse))))))
              (map-max-results (node)
                (destructuring-bind (position result children) node
                  (declare (ignore position))
@@ -267,20 +291,22 @@
         (map-max-results max-result-root)
         (funcall function result (constantly '()))))))
 
-(defun map-max-leaf-results (function result)
+(defun map-max-leaf-results (function result
+                             &rest args &key when-error-report)
+  (declare (ignore when-error-report))
   (let ((function (ensure-function function)))
-    (map-max-results (lambda (result recurse)
-                       (declare (type function recurse))
-                       ;; In addition to actual leafs, treat
-                       ;; unsatisfied predicate results or trivial
-                       ;; predicates as leafs (the latter are one
-                       ;; level above leafs anyway and allow for
-                       ;; better "expected" messages).
-                       (when (or (result-unsatisfied-predicate-p result)
-                                 (result-trivial-predicate-p result)
-                                 (not (funcall recurse)))
-                         (funcall function result)))
-                     result)))
+    (apply #'map-max-results
+           (lambda (result recurse)
+             (declare (type function recurse))
+             ;; In addition to actual leafs, treat unsatisfied
+             ;; predicate results or trivial predicates as leafs (the
+             ;; latter are one level above leafs anyway and allow for
+             ;; better "expected" messages).
+             (when (or (result-unsatisfied-predicate-p result)
+                       (result-trivial-predicate-p result)
+                       (not (funcall recurse)))
+               (funcall function result)))
+           result args)))
 
 (declaim (inline flattened-children))
 (defun flattened-children (recurse)
@@ -321,14 +347,16 @@
            (list result))
           ;; nonterminal with a single child => return the child.
           ((and (length= 1 children)
-                (or (result-nonterminal-p (first children))
-                    (not (result-nonterminal-p result))))
+                (or (result-suitable-for-report-part-p
+                     (first children) :context)
+                    (not (result-suitable-for-report-part-p
+                          result :context))))
            children)
           ;; nonterminal with multiple children, i.e. common
           ;; derivation ends here => return RESULT.
           (t
            (list result)))))
-    result)))
+    result :when-error-report '(:context :detail))))
 
 ;;; Return an explicit description (i.e. a STRING or CONDITION) of the
 ;;; cause of the parse failure if such a thing can be found in the
@@ -367,10 +395,11 @@
                (pushnew start-terminal expected :test #'expression-equal-p))
              (typecase leaf
                (failed-parse
-                (expression-start-terminals (result-expression leaf)))
+                (expression-start-terminals
+                 (result-expression leaf) :when-rule-error-report :detail))
                (successful-parse
                 '((not (character)))))))
-     result)
+     result :when-error-report :detail)
     (sort expected #'expression<)))
 
 ;;; Return a list of children of RESULT that are the roots of disjoint
@@ -401,11 +430,13 @@
            ;; Only a single child, i.e. children have not been
            ;; partitioned => return RESULT.
            ((length= 1 children)
-            (list result))
+            (if (result-suitable-for-report-part-p (first children) :detail)
+                children
+                (list result)))
            ;; Multiple children, but not all of them are nonterminals
            ;; and RESULT is a nonterminal => do not use the partition
            ;; into CHILDREN and instead return RESULT.
-           ((and (result-nonterminal-p result)
+           ((and (result-suitable-for-report-part-p result :detail)
                  (notevery #'result-nonterminal-p children))
             (list result))
            ;; Multiple children, all of which are nonterminals. If the
@@ -419,7 +450,7 @@
                     (when (intersection closure1 closure2 :test #'eq)
                       (return-from outer (list result))))
                  :finally (return-from outer children)))))))
-     result)))
+     result :when-error-report :detail)))
 
 ;;; Given the "context" result (see RESULT-CONTEXT) CONTEXT, determine
 ;;; the set of failed ancestor results (see PARTITION-RESULTS).

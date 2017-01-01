@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -196,8 +196,41 @@ Following OPTIONS can be specified:
 
     This option can be used to safely track nesting depth, manage symbol
     tables or for other stack-like operations.
+
+  * (:ERROR-REPORT ( T | NIL | :CONTEXT | :DETAIL ))
+
+    Defaults to T if not provided. Controls whether and how the rule
+    is used in parse error reports:
+
+    * T
+
+      The rule is used in parse error reports without
+      restriction (i.e. when describing the context of a failure as
+      well as listing failed rules and expected inputs).
+
+    * NIL
+
+      The rule is not used in parse error reports in any capacity. In
+      particular, inputs expected by the rule are not mentioned.
+
+      This value is useful for things like whitespace rules since
+      something like \"expected space, tab or newline\", even if it
+      would have allowed the parser to continue for one character, is
+      rarely helpful.
+
+    * :CONTEXT
+
+      The rule is used in the \"context\" part of parse error
+      reports. The rule is neither mentioned in the list of failed
+      rules nor are inputs expected by it.
+
+    * :DETAIL
+
+      The rule is not used in the \"context\" part of parse error
+      reports, but can appear in the list of failed rules. Inputs
+      expected by the rule are mentioned as well.
 "
-  (multiple-value-bind (transforms around guard condition)
+  (multiple-value-bind (transforms around guard condition error-report)
       (parse-defrule-options options form)
     (let ((transform (expand-transforms transforms)))
       `(eval-when (:load-toplevel :execute)
@@ -206,6 +239,7 @@ Following OPTIONS can be specified:
                                            :guard-expression ',guard
                                            :transform ,transform
                                            :around ,around
+                                           :error-report ,error-report
                                            :condition ,condition))))))
 
 (defun add-rule (symbol rule)

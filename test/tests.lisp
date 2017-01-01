@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -103,7 +103,13 @@
     (test-case '(defrule around-lambda-list "foo"
                  (:around (&key a))))
     (test-case '(defrule around-lambda-list "foo"
-                 (:around (&key &allow-other-keys))))))
+                 (:around (&key &allow-other-keys))))
+
+    (test-case '(defrule error-report.invalid "foo"
+                  (:error-report "invalid")))
+    (test-case '(defrule error-report.repeated "foo"
+                  (:error-report nil)
+                  (:error-report t)))))
 
 ;;; A few semantic predicates
 
@@ -133,7 +139,8 @@
   (:constant :beginning-of-input))
 
 (defrule whitespace (+ (or #\space #\tab #\newline))
-  (:text t))
+  (:text t)
+  (:error-report nil))
 
 (defrule empty-line #\newline
   (:constant ""))
@@ -170,6 +177,21 @@
         (destructuring-bind (int comma list) match
           (declare (ignore comma))
           (cons int list)))))
+
+(defrule detail.1
+    (and "d1" " " "detail" whitespace)
+  (:error-report :detail))
+
+(defrule detail.2
+    (and "d2" " " "detail" whitespace)
+  (:error-report nil))
+
+(defrule context.1
+    (and "context" " " (or (and "d3" " " "detail") detail.1))
+  (:error-report :context))
+
+(defrule error-report
+    (or detail.1 detail.2 (and "d4" " " "detail") context.1))
 
 (test-both-modes parse.smoke
   (macrolet
@@ -518,8 +540,8 @@
   (signals-esrap-error ("" esrap-parse-error 0
                            ("At end of input"
                             "^ (Line 1, Column 0, Position 0)"
-                            "In context INTEGER:"
-                            "While parsing INTEGER." "INTEGER"
+                            "In context DIGITS:"
+                            "While parsing DIGITS." "Expected"
                             "any character satisfying DIGIT-CHAR-P"))
     (parse 'integer ""))
 
@@ -544,7 +566,7 @@
   ;; Whitespace not allowed.
   (signals-esrap-error ("1, " esrap-parse-error 3
                               ("At" "^ (Line 1, Column 3, Position 3)"
-                               "In context INTEGER:"
+                               "In context DIGITS:"
                                "While parsing DIGITS." "Expected"
                                "any character satisfying DIGIT-CHAR-P"))
     (parse 'list-of-integers "1, "))
@@ -552,7 +574,7 @@
   ;; Multi-line input.
   (signals-esrap-error ("1,
 2, " esrap-parse-error 6 ("At" "1," "^ (Line 2, Column 3, Position 6)"
-                          "In context INTEGER:"
+                          "In context DIGITS:"
                           "While parsing DIGITS." "Expected"
                           "any character satisfying DIGIT-CHAR-P"))
     (parse 'list-of-integers "1,
@@ -620,6 +642,42 @@
                                 "the string \"bb\""
                                 "1 character after the current position"))
     (parse '(and "a" (> 1 "bb") "bcd") "abcd")))
+
+(test-both-modes condition.error-report
+  "Test effect of the :ERROR-REPORT option on parse error reports."
+  (signals-esrap-error ("foo" esrap-parse-error 0
+                        ("At" "^ (Line 1, Column 0, Position 0)"
+                         "In context ERROR-REPORT"
+                         "While parsing ERROR-REPORT"
+                         "Expected:"
+                         "the string \"d1\""
+                         "or the string \"d4\""))
+    (parse 'error-report "foo"))
+
+  (signals-esrap-error ("d1" esrap-parse-error 2
+                        ("At" "^ (Line 1, Column 2, Position 2)"
+                         "In context ERROR-REPORT"
+                         "While parsing DETAIL.1"
+                         "Expected:" "the character Space"))
+    (parse 'error-report "d1"))
+
+  (signals-esrap-error ("context" esrap-parse-error 7
+                        ("At" "^ (Line 1, Column 7, Position 7)"
+                         "In context CONTEXT.1"
+                         "While parsing CONTEXT.1"))
+    (parse 'error-report "context"))
+
+  (signals-esrap-error ("context d1 foo" esrap-parse-error 8
+                        ("At" "^ (Line 1, Column 8, Position 8)"
+                         "In context CONTEXT.1"
+                         "While parsing CONTEXT.1"))
+    (parse 'error-report "context d1 foo"))
+
+  (signals-esrap-error ("context d3 foo" esrap-parse-error 8
+                        ("At" "^ (Line 1, Column 8, Position 8)"
+                         "In context CONTEXT.1"
+                         "While parsing CONTEXT.1"))
+    (parse 'error-report "context d3 foo")))
 
 (test-both-modes parse.string
   "Test parsing an arbitrary string of a given length."

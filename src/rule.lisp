@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -112,35 +112,45 @@
   (gethash symbol *rules*))
 
 (defclass rule ()
-  ((%symbol
-    :initform nil
-    :reader rule-symbol)
-   (%expression
-    :initarg :expression
-    :initform (required-argument :expression))
-   (%guard-expression
-    :initarg :guard-expression
-    :initform t
-    :reader rule-guard-expression)
+  ((%symbol :initform nil
+            :reader rule-symbol)
+   (%expression :initarg :expression
+                :initform (required-argument :expression))
+   (%guard-expression :initarg :guard-expression
+                      :initform t
+                      :reader rule-guard-expression)
    ;; Either T for rules that are always active (the common case),
    ;; NIL for rules that are never active, or a function to call
    ;; to find out if the rule is active or not.
-   (%condition
-    :initarg :condition
-    :initform t
-    :reader rule-condition)
-   (%transform
-    :initarg :transform
-    :initform nil
-    :reader rule-transform)
-   (%around
-    :initarg :around
-    :initform nil
-    :reader rule-around)))
+   (%condition :initarg :condition
+               :initform t
+               :reader rule-condition)
+   (%transform :initarg :transform
+               :initform nil
+               :reader rule-transform)
+   (%around :initarg :around
+            :initform nil
+            :reader rule-around)
+   ;; Describes in which parts of an error report this rule, its
+   ;; children and the input (transitively) expected by the rule may
+   ;; be mentioned. This allows preventing "utility" rules from
+   ;; cluttering up error reports.
+   (%error-report :initarg :error-report
+                  :type rule-error-report
+                  :reader rule-error-report
+                  :initform t)))
 
 (setf (documentation 'rule-symbol 'function)
       "Returns the nonterminal associated with the RULE, or NIL if the
 rule is not attached to any nonterminal.")
+
+(declaim (ftype (function (symbol rule-error-report-pattern)
+                          (values boolean &optional))
+                rule-suitable-for-report-part-p))
+(defun rule-suitable-for-report-part-p (symbol part-or-parts)
+  (when-let ((rule (find-rule symbol)))
+    (error-report-behavior-suitable-for-report-part-p
+     (rule-error-report rule) part-or-parts)))
 
 (defun detach-rule (rule)
   (dolist (dep (%rule-direct-dependencies rule))

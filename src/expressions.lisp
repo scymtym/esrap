@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -173,7 +173,9 @@ but clause heads designate kinds of expressions instead of types. See
                 (rec (third expression) result)))))
     (rec expression '())))
 
-(defun expression-start-terminals (expression)
+(defun expression-start-terminals
+    (expression
+     &key (when-rule-error-report nil when-rule-error-report-p))
   "Return a list of terminals or tree of expressions with which a text
    parsable by EXPRESSION can start.
 
@@ -210,7 +212,11 @@ but clause heads designate kinds of expressions instead of types. See
    2. character terminals
    3. the CHARACTER wildcard terminal
    4. semantic predicates
-   5. everything else"
+   5. everything else
+
+   If supplied, WHEN-RULE-ERROR-REPORT restricts processing of
+   nonterminals to rules whose :ERROR-REPORT option is compatible with
+   the value of WHEN-RULE-ERROR-REPORT."
   (labels ((rec (expression seen)
              (expression-case expression
                ((character string character-ranges function terminal)
@@ -221,7 +227,10 @@ but clause heads designate kinds of expressions instead of types. See
                (nonterminal
                 (unless (member expression seen :test #'equal)
                   (when-let ((rule (find-rule expression)))
-                    (rec (rule-expression rule) (list* expression seen)))))
+                    (when (or (not when-rule-error-report-p)
+                              (error-report-behavior-suitable-for-report-part-p
+                               (rule-error-report rule) when-rule-error-report))
+                      (rec (rule-expression rule) (list* expression seen))))))
                ((not !)
                 (when-let ((result (rec/sorted (second expression) seen)))
                   (list (list (first expression) result))))
