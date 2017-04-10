@@ -230,17 +230,17 @@ Following OPTIONS can be specified:
       reports, but can appear in the list of failed rules. Inputs
       expected by the rule are mentioned as well.
 "
-  (multiple-value-bind (transforms around guard condition error-report)
+  (multiple-value-bind (transforms around when error-report)
       (parse-defrule-options options form)
     (let ((transform (expand-transforms transforms)))
       `(eval-when (:load-toplevel :execute)
          (add-rule ',symbol (make-instance 'rule
                                            :expression ',expression
-                                           :guard-expression ',guard
+                                           :guard-expression ',(cdr when)
+                                           :condition ,(car when)
                                            :transform ,transform
                                            :around ,around
-                                           :error-report ,error-report
-                                           :condition ,condition))))))
+                                           :error-report ,error-report))))))
 
 (defun add-rule (symbol rule)
   "Associates RULE with the nonterminal SYMBOL. Signals an error if the

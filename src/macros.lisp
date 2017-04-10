@@ -33,6 +33,28 @@ Catenates all the strings in arguments into a single string."
                    (list (cat-list elt))))))
       (cat-list arguments))))
 
+(defun singleton-option (context form keyword type &key default)
+  (let ((value default)
+        (value-seen nil))
+    (lambda (&optional (new-value nil new-value-p))
+      (cond
+        ((not new-value-p)
+         value)
+        ((not (typep new-value type))
+         (error 'simple-type-error
+                :datum new-value
+                :expected-type type
+                :format-control "~@<The value ~S is not a valid ~
+                                 argument to the ~S ~S option.~@:>"
+                :format-arguments (list new-value keyword context)))
+        (value-seen
+         (error "~@<Multiple ~S options in ~S form:~@:_~@:_~
+                 ~2@T~S.~@:>"
+                keyword context form))
+        (t
+         (setf value-seen t
+               value new-value))))))
+
 ;;; DEFRULE support functions
 
 (defun parse-lambda-list-maybe-containing-&bounds (lambda-list)
@@ -135,79 +157,60 @@ for use with IGNORE."
       (check-spec spec))))
 
 (defun parse-defrule-options (options form)
-  (let ((transform nil)
+  (let ((when (singleton-option 'defrule form :when t :default '(t . t)))
+        (transform nil)
         (around nil)
-        (error-report t)
-        (guard t)
-        (condition t)
-        (guard-seen nil)
-        (error-report-seen nil))
+        (error-report (singleton-option 'defrule form :error-report
+                                        'rule-error-report :default t)))
     (dolist (option options)
-      (flet ((set-guard (expr test)
-               (if guard-seen
-                   (error "~@<Multiple guards in ~S:~@:_~2@T~S~@:>"
-                          'defrule form)
-                   (setf guard-seen t
-                         guard expr
-                         condition test))))
-        (destructuring-ecase option
-          ((:when expr &rest rest)
-           (when rest
-             (error "~@<Multiple expressions in a ~S:~@:_~2@T~S~@:>"
-                    :when form))
-           (set-guard expr (cond
-                             ((not (constantp expr))
-                              `(lambda () ,expr))
-                             ((eval expr)
-                              t))))
-          ((:constant value)
-           (declare (ignore value))
-           (push option transform))
-          ((:text value)
-           (when value
-             (push option transform)))
-          ((:identity value)
-           (when value
-             (push option transform)))
-          ((:lambda lambda-list &body forms)
-           (declare (ignore forms))
-           (let ((lambda-list*
-                  (parse-lambda-list-maybe-containing-&bounds lambda-list)))
-             (check-lambda-list lambda-list*
-                                '(or (:required 1) (:optional 1))
-                                :report-lambda-list lambda-list)
-             (push option transform)))
-          ((:function designator)
-           (declare (ignore designator))
-           (push option transform))
-          ((:destructure lambda-list &body forms)
-           (declare (ignore lambda-list forms))
-           (push option transform))
-          ((:around lambda-list &body forms)
-           (multiple-value-bind (lambda-list* start end ignore)
-               (parse-lambda-list-maybe-containing-&bounds lambda-list)
-             (check-lambda-list
-              lambda-list* '() :report-lambda-list lambda-list)
-             (setf around `(lambda (,start ,end transform)
-                             (declare (ignore ,@ignore)
-                                      (function transform))
-                             (flet ((call-transform ()
-                                      (funcall transform)))
-                               ,@forms)))))
-          ((:error-report behavior)
-           (unless (typep behavior 'rule-error-report)
-             (error 'simple-type-error
-                    :datum behavior
-                    :expected-type 'rule-error-report
-                    :format-control "~@<The value ~S is not a valid ~
-                                     argument to the ~S option.~@:>"
-                    :format-arguments (list behavior :error-report)))
-           (if error-report-seen
-               (error "~@<Multiple ~S options in ~S:~@:_~2@T~S~@:>"
-                      :error-report 'defrule form)
-               (setf error-report-seen t
-                     error-report behavior))))))
-    (values transform around guard condition error-report)))
+      (destructuring-ecase option
+        ((:when expr &rest rest)
+         (when rest
+           (error "~@<Multiple expressions in a ~S:~@:_~2@T~S~@:>"
+                  :when form))
+         (funcall when (cons (cond
+                               ((not (constantp expr))
+                                `(lambda () ,expr))
+                               ((eval expr)
+                                t))
+                             expr)))
+        ((:constant value)
+         (declare (ignore value))
+         (push option transform))
+        ((:text value)
+         (when value
+           (push option transform)))
+        ((:identity value)
+         (when value
+           (push option transform)))
+        ((:lambda lambda-list &body forms)
+         (declare (ignore forms))
+         (let ((lambda-list*
+                (parse-lambda-list-maybe-containing-&bounds lambda-list)))
+           (check-lambda-list lambda-list*
+                              '(or (:required 1) (:optional 1))
+                              :report-lambda-list lambda-list)
+           (push option transform)))
+        ((:function designator)
+         (declare (ignore designator))
+         (push option transform))
+        ((:destructure lambda-list &body forms)
+         (declare (ignore lambda-list forms))
+         (push option transform))
+        ((:around lambda-list &body forms)
+         (multiple-value-bind (lambda-list* start end ignore)
+             (parse-lambda-list-maybe-containing-&bounds lambda-list)
+           (check-lambda-list
+            lambda-list* '() :report-lambda-list lambda-list)
+           (setf around `(lambda (,start ,end transform)
+                           (declare (ignore ,@ignore)
+                                    (function transform))
+                           (flet ((call-transform ()
+                                    (funcall transform)))
+                             ,@forms)))))
+        ((:error-report behavior)
+         (funcall error-report behavior))))
+    (values transform around (funcall when) (funcall error-report))))
 
 (defun expand-transforms (transforms)
   (labels

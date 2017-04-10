@@ -116,6 +116,8 @@
             :reader rule-symbol)
    (%expression :initarg :expression
                 :initform (required-argument :expression))
+   ;; Only for DESCRIBE-GRAMMAR. The %CONDITION slot stores the actual
+   ;; condition.
    (%guard-expression :initarg :guard-expression
                       :initform t
                       :reader rule-guard-expression)
