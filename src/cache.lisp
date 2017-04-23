@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -41,12 +41,12 @@
 
 ;; In case of left recursion, this stores
 (defstruct (head (:predicate nil) (:copier nil))
-  ;; the rule at which the left recursion started
+  ;; The rule at which the left recursion started.
   (rule (required-argument :rule) :type symbol)
-  ;; the set of involved rules
+  ;; The set of involved rules.
   (involved-set '() :type list)
-  ;; and the set of rules which rules which can still be applied in
-  ;; the current round of "seed parse" growing
+  ;; The set of rules which can still be applied in the current round
+  ;; of "seed parse" growing.
   (eval-set '() :type list))
 
 ;;; Left-recursion support
