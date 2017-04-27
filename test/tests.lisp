@@ -385,7 +385,8 @@
 
 (test-both-modes function-terminals.nested-parse
   "Test a function terminal which itself calls PARSE."
-  (parse 'function-terminals.nested-parse "bddca"))
+  (is (equal '("b" ("d" (("d" "c") "a")))
+             (parse 'function-terminals.nested-parse "bddca"))))
 
 (test-both-modes function-terminals.nested-parse.condition
   "Test propagation of failure information through function terminals."
@@ -1085,5 +1086,6 @@ satisfying DIGIT-CHAR-P")
 (test trace-rule.redefinition
   "Make sure that a traced rule can be redefined. This used to signal
    an error."
-  (trace-rule 'trace-rule.redefinition)
-  (change-rule 'trace-rule.redefinition '(and)))
+  (finishes
+    (trace-rule 'trace-rule.redefinition)
+    (change-rule 'trace-rule.redefinition '(and))))
