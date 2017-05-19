@@ -184,19 +184,21 @@ for use with IGNORE."
          (when value
            (push option transform)))
         ((:lambda lambda-list &body forms)
-         (declare (ignore forms))
-         (let ((lambda-list*
-                (parse-lambda-list-maybe-containing-&bounds lambda-list)))
+         (multiple-value-bind (lambda-list* start-var end-var ignore)
+             (parse-lambda-list-maybe-containing-&bounds lambda-list)
            (check-lambda-list lambda-list*
                               '(or (:required 1) (:optional 1))
                               :report-lambda-list lambda-list)
-           (push option transform)))
+           (push (list :lambda lambda-list* start-var end-var ignore forms)
+                 transform)))
         ((:function designator)
          (declare (ignore designator))
          (push option transform))
         ((:destructure lambda-list &body forms)
-         (declare (ignore lambda-list forms))
-         (push option transform))
+         (multiple-value-bind (lambda-list* start-var end-var ignore)
+             (parse-lambda-list-maybe-containing-&bounds lambda-list)
+           (push (list :destructure lambda-list* start-var end-var ignore forms)
+                 transform)))
         ((:around lambda-list &body forms)
          (multiple-value-bind (lambda-list* start end ignore)
              (parse-lambda-list-maybe-containing-&bounds lambda-list)
@@ -242,28 +244,21 @@ for use with IGNORE."
               (values
                (process-option rest start end `(,designator ,production))
                t))
-             ((:lambda lambda-list &body forms)
-              (multiple-value-bind (lambda-list* start-var end-var ignore)
-                  (parse-lambda-list-maybe-containing-&bounds lambda-list)
-                (check-lambda-list lambda-list*
-                                   '(or (:required 1) (:optional 1))
-                                   :report-lambda-list lambda-list)
-                (values (process-option
-                         rest start end
-                         `((lambda ,lambda-list*
-                             ,@(make-transform-body
-                                start end start-var end-var ignore forms))
-                           ,production))
-                        t)))
-             ((:destructure lambda-list &body forms)
-              (multiple-value-bind (lambda-list start-var end-var ignore)
-                  (parse-lambda-list-maybe-containing-&bounds lambda-list)
-                (values (process-option
-                         rest start end
-                         `(destructuring-bind ,lambda-list ,production
-                            ,@(make-transform-body
-                               start end start-var end-var ignore forms)))
-                        t)))))))
+             ((:lambda lambda-list start-var end-var ignore forms)
+              (values (process-option
+                       rest start end
+                       `((lambda ,lambda-list
+                           ,@(make-transform-body
+                              start end start-var end-var ignore forms))
+                         ,production))
+                      t))
+             ((:destructure lambda-list start-var end-var ignore forms)
+              (values (process-option
+                       rest start end
+                       `(destructuring-bind ,lambda-list ,production
+                          ,@(make-transform-body
+                             start end start-var end-var ignore forms)))
+                      t))))))
     (with-gensyms (production start end)
       (multiple-value-bind (form production-used-p)
           (process-option (reverse transforms) start end production)
