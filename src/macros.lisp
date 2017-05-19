@@ -107,7 +107,7 @@ for use with IGNORE."
     (labels ((fail (expected actual)
                (let ((expected (ensure-list expected))
                      (actual   (ensure-list actual)))
-                 (error "~@<Expected a lambda-list ~?, but ~S ~?.~@:>"
+                 (error "~@<Expected a lambda-list ~?, but ~:S ~?.~@:>"
                         (first expected) (rest expected)
                         report-lambda-list
                         (first actual) (rest actual))))
