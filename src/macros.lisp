@@ -68,24 +68,28 @@ Catenates all the strings in arguments into a single string."
 The second and/or third values are GENSYMS if LAMBDA-LIST contains a
 partial or no &BOUNDS section, in which case fourth value contains them
 for use with IGNORE."
-  (let ((length (length lambda-list)))
+  (let ((length (length lambda-list))
+        (index  (position '&bounds lambda-list)))
     (multiple-value-bind (lambda-list start end gensyms)
         (cond
           ;; Look for &BOUNDS START END.
-          ((and (>= length 3)
-                (eq (nth (- length 3) lambda-list) '&bounds))
-           (values (subseq lambda-list 0 (- length 3))
-                   (nth (- length 2) lambda-list)
-                   (nth (- length 1) lambda-list)
-                   nil))
+          ((eql index (- length 3))
+           (values (subseq lambda-list 0 index)
+                   (nth (+ index 1) lambda-list)
+                   (nth (+ index 2) lambda-list)
+                   '()))
           ;; Look for &BOUNDS START.
-          ((and (>= length 2)
-                (eq (nth (- length 2) lambda-list) '&bounds))
+          ((eql index (- length 2))
            (let ((end (gensym "END")))
-             (values (subseq lambda-list 0 (- length 2))
-                     (nth (- length 1) lambda-list)
+             (values (subseq lambda-list 0 index)
+                     (nth (+ index 1) lambda-list)
                      end
                      (list end))))
+          ;; &BOUNDS is present but not followed by either one or two
+          ;; names.
+          (index
+           (error "~@<Expected ~S START END or ~:*~S START but got ~:S.~@:>"
+                  '&bounds (subseq lambda-list index)))
           ;; No &BOUNDS section.
           (t
            (let ((start (gensym "START"))

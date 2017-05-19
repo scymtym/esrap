@@ -75,8 +75,13 @@
 
 (test defrule.errors
   "Test signaling of errors for DEFRULE syntax errors."
-  (flet ((test-case (form)
-           (signals error (macroexpand form))))
+  (flet ((test-case (form &optional expected-report)
+           (signals error (macroexpand form))
+           (when expected-report
+             (handler-case (macroexpand form)
+               (error (condition)
+                 (is (search expected-report
+                             (princ-to-string condition))))))))
     (test-case '(defrule multiple-guards "foo"
                   (:when foo)
                   (:when bar)))
@@ -93,6 +98,19 @@
                  (:lambda (&key a))))
     (test-case '(defrule lambda-lambda-list "foo"
                  (:lambda (&key &allow-other-keys))))
+    (test-case '(defrule lambda-lambda-list "foo"
+                 (:lambda (&bounds)))
+               "Expected &BOUNDS START END")
+    (test-case '(defrule lambda-lambda-list "foo"
+                 (:lambda (&bounds a b c)))
+               "Expected &BOUNDS START END")
+
+    (test-case '(defrule destructure-lambda-list "foo"
+                 (:destructure (&bounds)))
+               "Expected &BOUNDS START END")
+    (test-case '(defrule destructure-lambda-list "foo"
+                 (:destructure (&bounds a b c)))
+               "Expected &BOUNDS START END")
 
     (test-case '(defrule around-lambda-list "foo"
                  (:around (a))))
@@ -104,9 +122,15 @@
                  (:around (&key a))))
     (test-case '(defrule around-lambda-list "foo"
                  (:around (&key &allow-other-keys))))
+    (test-case '(defrule around-lambda-list "foo"
+                 (:around (&bounds)))
+               "Expected &BOUNDS START END")
+    (test-case '(defrule around-lambda-list "foo"
+                 (:around (&bounds a b c)))
+               "Expected &BOUNDS START END")
 
     (test-case '(defrule error-report.invalid "foo"
-                  (:error-report "invalid")))
+                 (:error-report "invalid")))
     (test-case '(defrule error-report.repeated "foo"
                   (:error-report nil)
                   (:error-report t)))))
