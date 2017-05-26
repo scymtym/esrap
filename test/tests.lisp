@@ -1014,13 +1014,14 @@ satisfying DIGIT-CHAR-P")
 
 ;;; Test tracing
 
+(defun parse-with-trace (rule text)
+  (with-output-to-string (*trace-output*)
+    (parse rule text)))
+
 (test #+TODO -both-modes trace-rule.smoke
   "Smoke test for the rule (un)tracing functionality."
   (labels
-      ((parse-with-trace (rule text)
-         (with-output-to-string (*trace-output*)
-           (parse rule text)))
-       (test-case (trace-rule trace-args parse-rule text expected)
+      ((test-case (trace-rule trace-args parse-rule text expected)
          ;; No trace output before tracing.
          (is (emptyp (parse-with-trace parse-rule text)))
          ;; Trace output.
@@ -1135,3 +1136,13 @@ satisfying DIGIT-CHAR-P")
   (finishes
     (trace-rule 'trace-rule.redefinition)
     (change-rule 'trace-rule.redefinition '(and))))
+
+(test trace-rule.twice
+  "Test tracing an already-traced rule."
+  (trace-rule 'integer)
+  (trace-rule 'integer)
+  (is (string= "1: INTEGER 0?
+1: INTEGER 0-3 -> 123
+"
+               (parse-with-trace 'integer "123")))
+  (untrace-rule 'integer))
