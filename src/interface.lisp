@@ -305,8 +305,11 @@ true."
 (defvar *trace-level* 0)
 
 (defun trace-rule (symbol &key recursive break condition)
-  "Turn on tracing of nonterminal SYMBOL. If RECURSIVE is true, turn
-on tracing for the whole grammar rooted at SYMBOL.
+  "Turn on tracing of nonterminal SYMBOL.
+
+If RECURSIVE is true, turn on tracing for the whole grammar rooted at
+SYMBOL. If RECURSIVE is a positive integer, turn on tracing for all
+rules reachable from the nonterminal SYMBOL in that number of steps.
 
 If BREAK is true, break is entered when the rule is invoked.
 
@@ -344,7 +347,7 @@ rule.
                (if (funcall condition symbol text position end)
                    (traced symbol break fun text position end)
                    (funcall fun text position end)))
-             (trace-one (symbol cell)
+             (trace-one (symbol cell depth)
                ;; Avoid infinite recursion and processing sub-trees
                ;; multiple times.
                (if (gethash cell seen)
@@ -367,23 +370,29 @@ rule.
                  ;; If requested, trace dependencies
                  ;; recursively. Checking RULE avoids recursing into
                  ;; referenced but undefined rules.
-                 (when (and recursive rule)
+                 (when (and rule
+                            (if (integerp depth) (plusp depth) depth))
                    (dolist (dep (%rule-direct-dependencies rule))
-                     (trace-one dep (find-rule-cell dep)))))
+                     (trace-one dep (find-rule-cell dep)
+                                (if (integerp depth) (1- depth) depth)))))
                t))
-      (trace-one symbol (or (find-rule-cell symbol)
-                            (undefined-rule symbol))))))
+      (trace-one symbol
+                 (or (find-rule-cell symbol)
+                     (undefined-rule symbol))
+                 recursive))))
 
 (defun untrace-rule (symbol &key recursive break condition)
   "Turn off tracing of nonterminal SYMBOL.
 
-If RECURSIVE is true, untraces the whole grammar rooted at SYMBOL.
+If RECURSIVE is true, turn off tracing for the whole grammar rooted at
+SYMBOL. If RECURSIVE is a positive integer, turn off tracing for all
+rules reachable from the nonterminal SYMBOL in that number of steps.
 
 BREAK and CONDITION are ignored, and are provided only for symmetry
 with TRACE-RULE."
   (declare (ignore break condition))
   (let ((seen (make-hash-table :test #'eq)))
-    (labels ((untrace-one (cell)
+    (labels ((untrace-one (cell depth)
                ;; Avoid infinite recursion and processing sub-trees
                ;; multiple times.
                (if (gethash cell seen)
@@ -398,12 +407,15 @@ with TRACE-RULE."
                  ;; If requested, trace dependencies
                  ;; recursively. Checking RULE avoids recursing into
                  ;; referenced but undefined rules.
-                 (when (and recursive rule)
+                  (when (and rule
+                             (if (integerp depth) (plusp depth) depth))
                    (dolist (dep (%rule-direct-dependencies rule))
-                     (untrace-one (find-rule-cell dep)))))
+                     (untrace-one (find-rule-cell dep)
+                                  (if (integerp depth) (1- depth) depth)))))
                nil))
       (untrace-one (or (find-rule-cell symbol)
-                       (undefined-rule symbol))))))
+                       (undefined-rule symbol))
+                   recursive))))
 
 (defun rule-expression (rule)
   "Return the parsing expression associated with the RULE."

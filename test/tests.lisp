@@ -1054,6 +1054,28 @@ satisfying DIGIT-CHAR-P")
 1: INTEGER 0-2 -> 12
 ")
 
+    ;; Depth-limited recursive tracing.
+    (test-case 'list-of-integers '(:recursive 1) 'list-of-integers "12, 13"
+               "1: LIST-OF-INTEGERS 0?
+ 2: INTEGER 0?
+ 2: INTEGER 0-2 -> 12
+ 2: LIST-OF-INTEGERS 3?
+  3: INTEGER 3?
+  3: INTEGER 3-6 -> 13
+  3: INTEGER 3?
+  3: INTEGER 3-6 -> 13
+  3: INTEGER 6?
+  3: INTEGER -|
+  3: INTEGER 6?
+  3: INTEGER -|
+ 2: LIST-OF-INTEGERS 3-6 -> (13)
+ 2: INTEGER 6?
+ 2: INTEGER -|
+ 2: INTEGER 6?
+ 2: INTEGER -|
+1: LIST-OF-INTEGERS 0-6 -> (12 13)
+")
+
     ;; Left-recursive rule - non-recursive tracing.
     (test-case 'left-recursion.direct '()
                'left-recursion.direct "rl"
