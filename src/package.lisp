@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -18,45 +18,68 @@
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (cl:defpackage #:esrap
-  (:use #:cl #:alexandria)
-  #+sbcl
-  (:lock t)
+  (:use
+   #:cl
+   #:alexandria)
+
+  #+sbcl (:lock t)
+
+  ;; Conditions
   (:export
-   #:&bounds
+   #:invalid-expression-error
+   #:invalid-expression-error-expression
 
-   #:! #:? #:+ #:* #:& #:~
-   #:character-ranges
+   #:undefined-rule-symbol
 
-   #:*on-left-recursion*
+   #:undefined-rule-error
 
-   #:add-rule
-   #:call-transform
-   #:change-rule
-   #:defrule
-   #:describe-grammar
-   #:describe-terminal
    #:esrap-error
    #:esrap-error-position
    #:esrap-error-text
+
    #:esrap-parse-error
    #:esrap-parse-error-result
    #:esrap-parse-error-context
-   #:expression-start-terminals
-   #:find-rule
-   #:invalid-expression-error
-   #:invalid-expression-error-expression
+
    #:left-recursion
    #:left-recursion-nonterminal
-   #:left-recursion-path
-   #:parse
-   #:remove-rule
+   #:left-recursion-path)
+
+  ;; Parsing
+  (:export
+   #:*on-left-recursion*
+
+   #:parse)
+
+  ;; Expressions
+  (:export
+   #:! #:? #:+ #:* #:& #:~
+   #:character-ranges)
+
+  ;; Introspection
+  (:export
+
+   #:expression-start-terminals
+
    #:rule
    #:rule-dependencies
    #:rule-expression
    #:rule-symbol
-   #:text
-   #:trace-rule
-   #:untrace-rule
-   #:undefined-rule-error
-   #:undefined-rule-symbol
-   ))
+
+   #:find-rule
+   #:add-rule #:remove-rule
+   #:change-rule
+
+   #:trace-rule #:untrace-rule
+
+   #:describe-grammar
+   #:describe-terminal)
+
+  ;; Macros
+  (:export
+   #:defrule
+
+   #:&bounds
+
+   #:call-transform
+   #:text))
