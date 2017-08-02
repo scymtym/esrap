@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -18,6 +18,12 @@
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (cl:in-package #:esrap-tests)
+
+(defmacro destructuring-lambda (lambda-list &body body)
+  (with-gensyms (args)
+    `(lambda (&rest ,args)
+       (destructuring-bind ,lambda-list ,args
+         ,@body))))
 
 (defmacro with-silent-compilation-unit (() &body body)
   `(let ((*error-output* (make-broadcast-stream)))

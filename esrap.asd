@@ -105,6 +105,7 @@
                  :serial t
                  :components ((:file "package")
                               (:file "util")
+                              (:file "expressions")
                               (:file "tests")
                               (:file "examples")
                               (:file "readme")))))

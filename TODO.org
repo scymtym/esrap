@@ -112,8 +112,8 @@ Esrap TODO
    documentation comments. Which do we want? After deciding, make this
    consistent.
 ** TODO Write tests for removing rules
-** TODO Write tests for ~%expression-[direct-]dependencies~
 ** STARTED Reference example files from manual
+** DONE Write tests for ~%expression-[direct-]dependencies~
 ** DONE Better error reports
    For parse errors, in particular "incomplete parse" errors, provide
    a better description of where the parse actually failed, which rule
