@@ -163,7 +163,7 @@ but clause heads designate kinds of expressions instead of types. See
                ((character string character-ranges function terminal)
                 result)
                (nonterminal
-                (list* expression result))
+                (adjoin expression result :test #'eq))
                ((and or)
                 (reduce #'rec (rest expression)
                         :initial-value result :from-end t))

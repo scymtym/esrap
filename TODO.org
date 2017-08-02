@@ -123,6 +123,6 @@ Esrap TODO
 * Bugs
 ** NEW Tracing does not work for interpreted rules
 ** NEW Recursive rules cannot be removed
-** NEW ~%expression-direct-dependencies~ returns duplicates
+** DONE ~%expression-direct-dependencies~ returns duplicates
 
 #+SEQ_TODO: NEW TODO STARTED | CANCELED DONE
