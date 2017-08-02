@@ -55,6 +55,19 @@ Catenates all the strings in arguments into a single string."
          (setf value-seen t
                value new-value))))))
 
+;;; http://jcsu.jesus.cam.ac.uk/~csr21/papers/features.pdf
+(eval-when (:compile-toplevel :execute)
+  (when (and (find-package '#:sb-ext)
+             (find-symbol (string '#:with-current-source-form) '#:sb-ext))
+    (pushnew 'sb-ext-with-current-source-form *features*)))
+
+(defmacro with-current-source-form ((&rest forms) &body body)
+  #-esrap::sb-ext-with-current-source-form (declare (ignore forms))
+  #+esrap::sb-ext-with-current-source-form
+  `(sb-ext:with-current-source-form (,@forms) ,@body)
+  #-esrap::sb-ext-with-current-source-form
+  `(progn ,@body))
+
 ;;; DEFRULE support functions
 
 (defun parse-lambda-list-maybe-containing-&bounds (lambda-list)
@@ -167,55 +180,59 @@ for use with IGNORE."
         (error-report (singleton-option 'defrule form :error-report
                                         'rule-error-report :default t)))
     (dolist (option options)
-      (destructuring-ecase option
-        ((:when expr &rest rest)
-         (when rest
-           (error "~@<Multiple expressions in a ~S:~@:_~2@T~S~@:>"
-                  :when form))
-         (funcall when (cons (cond
-                               ((not (constantp expr))
-                                `(lambda () ,expr))
-                               ((eval expr)
-                                t))
-                             expr)))
-        ((:constant value)
-         (declare (ignore value))
-         (push option transform))
-        ((:text value)
-         (when value
-           (push option transform)))
-        ((:identity value)
-         (when value
-           (push option transform)))
-        ((:lambda lambda-list &body forms)
-         (multiple-value-bind (lambda-list* start-var end-var ignore)
-             (parse-lambda-list-maybe-containing-&bounds lambda-list)
-           (check-lambda-list lambda-list*
-                              '(or (:required 1) (:optional 1))
-                              :report-lambda-list lambda-list)
-           (push (list :lambda lambda-list* start-var end-var ignore forms)
-                 transform)))
-        ((:function designator)
-         (declare (ignore designator))
-         (push option transform))
-        ((:destructure lambda-list &body forms)
-         (multiple-value-bind (lambda-list* start-var end-var ignore)
-             (parse-lambda-list-maybe-containing-&bounds lambda-list)
-           (push (list :destructure lambda-list* start-var end-var ignore forms)
-                 transform)))
-        ((:around lambda-list &body forms)
-         (multiple-value-bind (lambda-list* start end ignore)
-             (parse-lambda-list-maybe-containing-&bounds lambda-list)
-           (check-lambda-list
-            lambda-list* '() :report-lambda-list lambda-list)
-           (setf around `(lambda (,start ,end transform)
-                           (declare (ignore ,@ignore)
-                                    (function transform))
-                           (flet ((call-transform ()
-                                    (funcall transform)))
-                             ,@forms)))))
-        ((:error-report behavior)
-         (funcall error-report behavior))))
+      (with-current-source-form (option)
+        (destructuring-ecase option
+          ((:when expr &rest rest)
+           (when rest
+             (error "~@<Multiple expressions in a ~S:~@:_~2@T~S~@:>"
+                    :when form))
+           (funcall when (cons (cond
+                                 ((not (constantp expr))
+                                  `(lambda () ,expr))
+                                 ((eval expr)
+                                  t))
+                               expr)))
+          ((:constant value)
+           (declare (ignore value))
+           (push option transform))
+          ((:text value)
+           (when value
+             (push option transform)))
+          ((:identity value)
+           (when value
+             (push option transform)))
+          ((:lambda lambda-list &body forms)
+           (with-current-source-form (lambda-list option)
+             (multiple-value-bind (lambda-list* start-var end-var ignore)
+                 (parse-lambda-list-maybe-containing-&bounds lambda-list)
+               (check-lambda-list lambda-list*
+                                  '(or (:required 1) (:optional 1))
+                                  :report-lambda-list lambda-list)
+               (push (list :lambda lambda-list* start-var end-var ignore forms)
+                     transform))))
+          ((:function designator)
+           (declare (ignore designator))
+           (push option transform))
+          ((:destructure lambda-list &body forms)
+           (with-current-source-form (lambda-list option)
+             (multiple-value-bind (lambda-list* start-var end-var ignore)
+                 (parse-lambda-list-maybe-containing-&bounds lambda-list)
+               (push (list :destructure lambda-list* start-var end-var ignore forms)
+                     transform))))
+          ((:around lambda-list &body forms)
+           (with-current-source-form (lambda-list option)
+             (multiple-value-bind (lambda-list* start end ignore)
+                 (parse-lambda-list-maybe-containing-&bounds lambda-list)
+               (check-lambda-list
+                lambda-list* '() :report-lambda-list lambda-list)
+               (setf around `(lambda (,start ,end transform)
+                               (declare (ignore ,@ignore)
+                                        (function transform))
+                               (flet ((call-transform ()
+                                        (funcall transform)))
+                                 ,@forms))))))
+          ((:error-report behavior)
+           (funcall error-report behavior)))))
     (values transform around (funcall when) (funcall error-report))))
 
 (defun expand-transforms (transforms)
