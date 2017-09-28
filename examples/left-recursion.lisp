@@ -34,7 +34,9 @@
 (defun test-la ()
   (let ((*on-left-recursion* :error))
     (assert (equal (parse 'la-expr "1*2+3*4+5")
-                   '(+ (* 1 2) (+ (* 3 4) 5))))))
+                   '(+ (* 1 2)
+                       (+ (* 3 4)
+                          5))))))
 
 ;;; Right associative expressions
 
@@ -64,8 +66,9 @@
     (parse 'ra-expr "1*2+3*4+5")) ; |- Error
 
   (assert (equal (parse 'ra-expr "1*2+3*4+5")
-                 '(+ (+ (* 1 2) (* 3 4)) 5))))
-
+                 '(+ (+ (* 1 2)
+                        (* 3 4))
+                     5))))
 
 ;;; The following example is given in
 ;;;
@@ -84,8 +87,8 @@
         "this"))
 
 (defrule class-instance-creation-expression
-    (or (and "new" class-or-interface-type "()")
-        (and primary ".new" identifier "()")))
+    (or (and         "new"  class-or-interface-type "()")
+        (and primary ".new" identifier              "()")))
 
 ;; Note: in the paper, the first case is
 ;;
@@ -93,21 +96,21 @@
 ;;
 ;; but that seems to be an error.
 (defrule method-invocation
-    (or (and primary "." method-name "()")
-        (and (and) (and) method-name "()"))
+    (or (and primary "."   method-name "()")
+        (and (and)   (and) method-name "()"))
   (:destructure (structure dot name parens)
     (declare (ignore dot parens))
     (list :method-invocation structure name)))
 
 (defrule field-access
     (or (and primary "." identifier)
-        (and "super." identifier))
+        (and "super."    identifier))
   (:destructure (structure dot field)
     (declare (ignore dot))
     (list :field-access structure field)))
 
 (defrule array-access
-    (or (and primary "[" expression "]")
+    (or (and primary         "[" expression "]")
         (and expression-name "[" expression "]"))
   (:destructure (structure open index close)
     (declare (ignore open close))
