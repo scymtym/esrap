@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2018 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -41,7 +41,7 @@
   ;; * a (possibly empty) list thereof
   ;; * a string describing the failure
   ;; * a condition instance describing the failure
-  (detail     nil                        :type (or result list string condition) :read-only t))
+  (detail     nil                        :type (or structure-object #|result|# list string condition) :read-only t))
 
 ;; The following function is only called from slow paths.
 (declaim (ftype (function (result) (values input-position &optional))
