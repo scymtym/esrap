@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -30,14 +30,16 @@
 
 (declaim (inline make-cache get-cached (setf get-cached)))
 
-(defun make-cache ()
-  (make-hash-table :test #'equal))
+(defun make-cache (length)
+  (make-chunk-cache length))
 
 (defun get-cached (symbol position cache)
-  (gethash (cons symbol position) cache))
+  (cached symbol position cache))
 
 (defun (setf get-cached) (result symbol position cache)
-  (setf (gethash (cons symbol position) cache) result))
+  (setf (cached symbol position cache) result))
+
+;;; Left-recursion support
 
 ;; In case of left recursion, this stores
 (defstruct (head (:predicate nil) (:copier nil))
@@ -49,18 +51,18 @@
   ;; of "seed parse" growing.
   (eval-set '() :type list))
 
-;;; Left-recursion support
-
 (declaim (inline make-heads get-head (setf get-head)))
 
-(defun make-heads ()
-  (make-hash-table :test #'equal))
+(defun make-heads (length)
+  (make-chunk-cache length))
 
 (defun get-head (position heads)
-  (gethash position heads))
+  (when-let ((chunk (find-chunk position heads)))
+    (aref chunk (ldb (byte +chunk-divisor+ 0) position))))
 
 (defun (setf get-head) (head position heads)
-  (setf (gethash position heads) head))
+  (let ((chunk (ensure-chunk position heads)))
+    (setf (aref chunk (ldb (byte +chunk-divisor+ 0) position)) head)))
 
 (defun recall (rule position cache heads thunk)
   (let ((result (get-cached rule position cache))
@@ -91,13 +93,17 @@
                  context-cache context-heads
                  context-nonterminal-stack (setf context-nonterminal-stack)))
 (defstruct (context
-             (:constructor make-context ()))
-  (cache             (make-cache) :type hash-table :read-only t)
-  (heads             (make-heads) :type hash-table :read-only t)
-  (nonterminal-stack '()          :type list))
+            (:constructor make-context (length
+                                        &aux
+                                        (cache (make-cache length))
+                                        (heads (make-heads length)))))
+  (cache             nil :type chunk-cache :read-only t)
+  (heads             nil :type chunk-cache :read-only t)
+  (nonterminal-stack '() :type list))
+#+sbcl (declaim (sb-ext:freeze-type context))
 
 (declaim (type context *context*))
-(defvar *context* (make-context))
+(defvar *context* (make-context 1))
 
 (defmacro with-pushed-nonterminal ((symbol context) &body body)
   (with-gensyms (previous cell)

@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2018 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -43,8 +43,9 @@
   :source-control   (:git "https://github.com/scymtym/esrap.git")
   :licence          "MIT"
   :depends-on       ("alexandria")
-  :components       ((:module "src"
-                      :serial t
+  :components       ((:module     "early"
+                      :pathname   "src"
+                      :serial     t
                       :components ((:file "package")
                                    (:file "types")
                                    (:file "protocol")
@@ -52,8 +53,20 @@
                                    (:file "conditions")
                                    (:file "expressions")
                                    (:file "rule")
-                                   (:file "results")
-                                   (:file "cache")
+                                   (:file "results")))
+
+                     (:module     "cache"
+                      :pathname   "src/cache"
+                      :depends-on ("early")
+                      :serial     t
+                      :components ((:file "chunk")
+                                   (:file "packrat")))
+
+                     (:module     "src"
+                      :depends-on ("early" "cache")
+                      :serial     t
+                      :components ((:file "context")
+
                                    (:file "evaluator")
                                    (:file "macros")
                                    (:file "interface")
@@ -105,8 +118,11 @@
                  :serial t
                  :components ((:file "package")
                               (:file "util")
+
                               (:file "expressions")
                               (:file "tests")
+                              (:file "stress")
+
                               (:file "examples")
                               (:file "readme"))))
 

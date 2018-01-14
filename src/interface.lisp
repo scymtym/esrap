@@ -57,7 +57,7 @@ happen when :raw t."
             sense.~@:>"
            (list :junk-allowed junk-allowed :raw raw)))
   (let* ((end (or end (length text)))
-         (*context* (make-context))
+         (*context* (make-context end))
          (result (eval-expression expression text start end)))
     (declare (dynamic-extent *context*))
     (if raw
@@ -76,7 +76,7 @@ happen when :raw t."
                                     ,@(if rawp '(raw))
                                     ,@(if junk-allowed-p '(junk-allowed)))
                    (let* ((end (or end (length text)))
-                          (*context* (make-context))
+                          (*context* (make-context end))
                           (,result-var (funcall ,expr-fun text start end)))
                      (declare (dynamic-extent *context*))
                      ,body))
