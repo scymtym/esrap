@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2018 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -928,11 +928,13 @@
            `(is (string= ,expected (describe-it ,terminal)))))
       (test-case 'character  "any character")
       (test-case '(string 5) "a string of length 5")
-      (test-case #\a         (format nil "the character a (~A)" (char-name #\a)))
-      (test-case #\Space     "the character Space")
-      (test-case '(~ #\a)    (format nil "the character a (~A), disregarding case"
+      (test-case #\a         (format nil "the character a~@[ (~A)~]"
                                      (char-name #\a)))
-      (test-case "f"         (format nil "the character f (~A)" (char-name #\f)))
+      (test-case #\Space     "the character Space")
+      (test-case '(~ #\a)    (format nil "the character a~@[ (~A)~], disregarding case"
+                                     (char-name #\a)))
+      (test-case "f"         (format nil "the character f~@[ (~A)~]"
+                                     (char-name #\f)))
       (test-case "foo"       "the string \"foo\"")
       (test-case '(~ "foo")  "the string \"foo\", disregarding case")
       (test-case '(character-ranges #\a)
@@ -955,16 +957,16 @@ satisfying DIGIT-CHAR-P")
  or the string \"cc\"
 satisfying DIGIT-CHAR-P")
       (test-case '(not (#\a #\b))
-                 (format nil "anything but     the character a (~A)
-             and the character b (~A)"
+                 (format nil "anything but     the character a~@[ (~A)~]
+             and the character b~@[ (~A)~]"
                          (char-name #\a) (char-name #\b)))
       (test-case '(not (character)) "<end of input>")
       (test-case '(! (#\a #\b))
-                 (format nil "anything but     the character a (~A)
-             and the character b (~A)"
+                 (format nil "anything but     the character a~@[ (~A)~]
+             and the character b~@[ (~A)~]"
                          (char-name #\a) (char-name #\b)))
       (test-case '(! ((keyword? (#\_ (alpha-char-p (character))))))
-                 (format nil "anything but     the character _ (~A)
+                 (format nil "anything but     the character _~@[ (~A)~]
               or any character satisfying ALPHA-CHAR-P
              satisfying ~A"
                          (char-name #\_) 'keyword?)))))

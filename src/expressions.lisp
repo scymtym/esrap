@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2018 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -308,7 +308,7 @@ but clause heads designate kinds of expressions instead of types. See
          (output prefix (length sub-expression))
          (rec (first sub-expression))
          (loop :for terminal :in (rest sub-expression)
-            :do (output separator) (rec terminal)))
+               :do (output separator) (rec terminal)))
        (rec (terminal)
          (expression-case terminal
            (character
@@ -327,10 +327,12 @@ but clause heads designate kinds of expressions instead of types. See
                          (character
                           ;; For non-graphic or whitespace characters,
                           ;; just print the name.
-                          (output "the character ~:[~*~A~:;~A (~A)~]"
-                                  (and (graphic-char-p thing)
-                                       (not (member thing '(#\Space #\Tab #\Newline))))
-                                  thing (char-name thing)))
+                          (let ((both-p (and (graphic-char-p thing)
+                                             (not (member thing
+                                                          '(#\Space #\Tab #\Newline)))))
+                                (name (char-name thing)))
+                            (output "the character ~:[~*~A~;~A~@[ (~A)~]~]"
+                                    both-p thing name)))
                          (string
                           (if (length= 1 thing)
                               (rec (char thing 0))
