@@ -17,7 +17,7 @@
 ;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-(defsystem :esrap
+(defsystem "esrap"
   :version          "0.17"
   :description      "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
   :long-description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp.
@@ -42,7 +42,7 @@
   :bug-tracker      "https://github.com/scymtym/esrap/issues"
   :source-control   (:git "https://github.com/scymtym/esrap.git")
   :licence          "MIT"
-  :depends-on       (:alexandria)
+  :depends-on       ("alexandria")
   :components       ((:module "src"
                       :serial t
                       :components ((:file "package")
@@ -66,9 +66,9 @@
                                    (:static-file "function-terminals.lisp")))
 
                      (:static-file "README.org"))
-  :in-order-to      ((test-op (test-op :esrap/tests))))
+  :in-order-to      ((test-op (test-op "esrap/tests"))))
 
-(defmethod perform :after ((op load-op) (sys (eql (find-system :esrap))))
+(defmethod perform :after ((op load-op) (sys (eql (find-system "esrap"))))
   ;; Since version 0.16
   ;; * DEFRULE accepts an :ERROR-REPORT option
   ;; Since version 0.15
@@ -88,14 +88,14 @@
   ;; For consistency with examples which contain (require :esrap).
   (provide :esrap))
 
-(defsystem :esrap/tests
+(defsystem "esrap/tests"
   :description "Tests for ESRAP."
   :author      ("Nikodemus Siivola <nikodemus@random-state.net>"
                 "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>")
   :maintainer  "Jan Moringen <jmoringe@techfak.uni-bielefeld.de>"
   :licence     "MIT"
-  :depends-on  (:esrap
-                (:version :fiveam "1.3"))
+  :depends-on  ("esrap"
+                (:version "fiveam" "1.3"))
   :serial      t
   :components  ((:module "examples"
                  :components ((:file "left-recursion")
@@ -108,8 +108,7 @@
                               (:file "expressions")
                               (:file "tests")
                               (:file "examples")
-                              (:file "readme")))))
+                              (:file "readme"))))
 
-(defmethod perform ((operation test-op)
-                    (system    (eql (find-system :esrap/tests))))
-  (funcall (intern "RUN-TESTS" :esrap-tests)))
+  :perform     (test-op (operation component)
+                 (uiop:symbol-call '#:esrap-tests '#:run-tests)))
