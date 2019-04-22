@@ -18,7 +18,7 @@
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (defsystem "esrap"
-  :version          "0.17"
+  :version          "0.18"
   :description      "A Packrat / Parsing Grammar / TDPL parser for Common Lisp."
   :long-description "A Packrat / Parsing Grammar / TDPL parser for Common Lisp.
 
