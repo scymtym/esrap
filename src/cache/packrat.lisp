@@ -29,7 +29,7 @@
 ;;; bottleneck, the implementation tries to be as runtime and memory
 ;;; efficient as possible. A two-level scheme maps the pairs
 ;;; mentioned above to parse results:
-;;; 1. an array maps the input position to secondary a structure
+;;; 1. an array maps the input position to a secondary structure
 ;;; 2. this structure maps the rule name to the cached parse results
 ;;;
 ;;; The interesting part about 1. is not allocating an array of the
