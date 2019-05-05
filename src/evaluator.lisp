@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -40,7 +40,7 @@
 
 (defvar *current-rule* nil)
 
-(defun compile-rule (symbol expression condition transform around)
+(defun compile-rule (symbol expression condition transform around properties)
   (declare (type (or boolean function) condition transform around))
   (let* ((*current-rule* symbol)
          ;; Must bind *CURRENT-RULE* before compiling the expression!
@@ -49,53 +49,65 @@
          ;; (error) results produced by inactive rules. The actual
          ;; error position has to be added in a post-processing step.
          (rule-not-active (make-inactive-rule symbol 0)))
-    (cond ((not condition)
-           (named-lambda inactive-rule (text position end)
-             (declare (ignore text position end))
-             rule-not-active))
-          (transform
-           (locally (declare (type function transform))
-             (flet ((exec-rule/transform (text position end)
-                      (let ((result (funcall function text position end)))
-                        (if (error-result-p result)
-                            (make-failed-parse/no-position symbol result)
-                            (if around
-                                (locally (declare (type function around))
-                                  (make-successful-parse
-                                   symbol (result-position result)
-                                   result (flet ((call-rule ()
-                                                   (funcall transform
-                                                            (successful-parse-production result)
-                                                            position
-                                                            (result-position result))))
-                                            (funcall around position (result-position result) #'call-rule))))
+    (macrolet
+        ((named-lambda/cache-variants (name lambda-list &body body)
+           `(if (rule-property-p properties :uses-cache)
+                (named-lambda ,name ,lambda-list ,@body)
+                (named-lambda ,name ,lambda-list
+                  (macrolet ((with-cached-result
+                                 ((symbol position text) &body body)
+                               (declare (ignore symbol position text))
+                               `(progn ,@body)))
+                    ,@body)))))
+      (cond
+        ((not condition)
+         (named-lambda inactive-rule (text position end)
+           (declare (ignore text position end))
+           rule-not-active))
+        (transform
+         (locally (declare (type function transform))
+           (flet ((exec-rule/transform (text position end)
+                    (let ((result (funcall function text position end)))
+                      (if (error-result-p result)
+                          (make-failed-parse/no-position symbol result)
+                          (if around
+                              (locally (declare (type function around))
                                 (make-successful-parse
                                  symbol (result-position result)
-                                 result (funcall transform
-                                                 (successful-parse-production result)
-                                                 position
-                                                 (result-position result))))))))
-               (if (eq t condition)
-                   (named-lambda rule/transform (text position end)
-                     (with-cached-result (symbol position text)
-                       (exec-rule/transform text position end)))
-                   (locally (declare (type function condition))
-                     (named-lambda condition-rule/transform (text position end)
-                       (with-cached-result (symbol position text)
-                         (if (funcall condition)
-                             (exec-rule/transform text position end)
-                             rule-not-active))))))))
-          (t
-           (if (eq t condition)
-               (named-lambda rule (text position end)
-                 (with-cached-result (symbol position text)
-                   (funcall function text position end)))
-               (locally (declare (type function condition))
-                 (named-lambda conditional-rule (text position end)
+                                 result (flet ((call-rule ()
+                                                 (funcall transform
+                                                          (successful-parse-production result)
+                                                          position
+                                                          (result-position result))))
+                                          (funcall around position (result-position result) #'call-rule))))
+                              (make-successful-parse
+                               symbol (result-position result)
+                               result (funcall transform
+                                               (successful-parse-production result)
+                                               position
+                                               (result-position result))))))))
+             (if (eq t condition)
+                 (named-lambda/cache-variants rule/transform (text position end)
                    (with-cached-result (symbol position text)
-                     (if (funcall condition)
-                         (funcall function text position end)
-                         rule-not-active)))))))))
+                     (exec-rule/transform text position end)))
+                 (locally (declare (type function condition))
+                   (named-lambda/cache-variants
+                    condition-rule/transform (text position end)
+                    (with-cached-result (symbol position text)
+                      (if (funcall condition)
+                          (exec-rule/transform text position end)
+                          rule-not-active))))))))
+        (t
+         (if (eq t condition)
+             (named-lambda/cache-variants rule (text position end)
+               (with-cached-result (symbol position text)
+                 (funcall function text position end)))
+             (locally (declare (type function condition))
+               (named-lambda/cache-variants conditional-rule (text position end)
+                 (with-cached-result (symbol position text)
+                   (if (funcall condition)
+                       (funcall function text position end)
+                       rule-not-active))))))))))
 
 ;;; EXPRESSION COMPILER & EVALUATOR
 

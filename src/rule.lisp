@@ -35,15 +35,14 @@
                                        `(if ,symbol ,(ash 1 index) 0)))
                              symbol+index)))
             (defun rule-property-p (properties property)
-              ,(when properties
-                 `(logbitp
-                   (ecase property
-                     ,@(map 'list (lambda (entry)
-                                    (destructuring-bind (symbol index) entry
-                                      `(,(make-keyword symbol) ,index)))
-                        symbol+index))
-                   properties)))))))
-  (define))
+              (logbitp
+               (ecase property
+                 ,@(map 'list (lambda (entry)
+                                (destructuring-bind (symbol index) entry
+                                  `(,(make-keyword symbol) ,index)))
+                    symbol+index))
+               properties))))))
+  (define uses-cache))
 
 ;;; RULE REPRESENTATION AND STORAGE
 ;;;

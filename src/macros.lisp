@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -178,7 +178,9 @@ for use with IGNORE."
         (transform nil)
         (around nil)
         (error-report (singleton-option 'defrule form :error-report
-                                        'rule-error-report :default t)))
+                                        'rule-error-report :default t))
+        (use-cache (singleton-option 'defrule form :use-cache
+                                     'cache-policy :default t)))
     (dolist (option options)
       (with-current-source-form (option)
         (destructuring-ecase option
@@ -231,9 +233,12 @@ for use with IGNORE."
                                (flet ((call-transform ()
                                         (funcall transform)))
                                  ,@forms))))))
+          ((:use-cache value)
+           (funcall use-cache value))
           ((:error-report behavior)
            (funcall error-report behavior)))))
-    (values transform around (funcall when) (funcall error-report))))
+    (values transform around (funcall when)
+            (funcall error-report) (funcall use-cache))))
 
 (defun expand-transforms (transforms)
   (labels

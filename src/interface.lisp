@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -197,6 +197,19 @@ Following OPTIONS can be specified:
     This option can be used to safely track nesting depth, manage symbol
     tables or for other stack-like operations.
 
+  * (:USE-CACHE BOOLEAN)
+
+    Defaults to T if not provided. Controls whether the rule should be
+    compiled with caching.
+
+    For rules with simple expressions, the overhead of cache lookup
+    and update can by far exceed the cost of simply evaluating the
+    rule expression. Disabling caching can improve performance in such
+    cases.
+
+    Note that disabling caching can change the behavior of the rule,
+    for example when the rule transform returns a fresh object.
+
   * (:ERROR-REPORT ( T | NIL | :CONTEXT | :DETAIL ))
 
     Defaults to T if not provided. Controls whether and how the rule
@@ -230,9 +243,11 @@ Following OPTIONS can be specified:
       reports, but can appear in the list of failed rules. Inputs
       expected by the rule are mentioned as well.
 "
-  (multiple-value-bind (transforms around when error-report)
+  (multiple-value-bind (transforms around when error-report use-cache)
       (parse-defrule-options options form)
-    (let ((transform (expand-transforms transforms)))
+    (let ((transform (expand-transforms transforms))
+          (properties (make-rule-properties
+                       :uses-cache use-cache)))
       `(eval-when (:load-toplevel :execute)
          (add-rule ',symbol (make-instance 'rule
                                            :expression ',expression
@@ -240,7 +255,8 @@ Following OPTIONS can be specified:
                                            :condition ,(car when)
                                            :transform ,transform
                                            :around ,around
-                                           :error-report ,error-report))))))
+                                           :error-report ,error-report
+                                           :properties ,properties))))))
 
 (defun add-rule (symbol rule)
   "Associates RULE with the nonterminal SYMBOL. Signals an error if the
@@ -256,7 +272,8 @@ associated with a rule, the old rule is removed first."
                                  (rule-expression rule)
                                  (rule-condition rule)
                                  (rule-transform rule)
-                                 (rule-around rule)))
+                                 (rule-around rule)
+                                 (rule-properties rule)))
          (trace-info (cell-trace-info cell)))
     (set-cell-info cell function rule)
     (setf (cell-trace-info cell)     nil

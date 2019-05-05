@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2018 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -133,7 +133,13 @@
                  (:error-report "invalid")))
     (test-case '(defrule error-report.repeated "foo"
                   (:error-report nil)
-                  (:error-report t)))))
+                  (:error-report t)))
+
+    (test-case '(defrule use-cache.invalid "foo"
+                  (:use-cache 5)))
+    (test-case '(defrule use-cache.repeated "foo"
+                  (:use-cache nil)
+                  (:use-cache t)))))
 
 ;;; A few semantic predicates
 
@@ -867,6 +873,28 @@
   (is (eql 1 (parse 'multiple-transforms.1 "a1c")))
   (is (equal '(2 0 1) (parse 'multiple-transforms.2 "1")))
   (is (equal '(1 0) (parse 'multiple-transforms.3 "1"))))
+
+;;; Test uncached rules
+
+(defrule uncached.1
+    #\a
+  (:use-cache nil))
+
+(defrule uncached.2
+    #\b
+  (:use-cache t))
+
+(defrule uncached
+    (and (+ uncached.1) (+ uncached.2)))
+
+(test-both-modes uncached
+  "Test uncached rules."
+  (flet ((test-case (input expected)
+           (is (equal expected (parse 'uncached input)))))
+    (test-case "ab"   '(("a")     ("b")))
+    (test-case "aab"  '(("a" "a") ("b")))
+    (test-case "abb"  '(("a")     ("b" "b")))
+    (test-case "aabb" '(("a" "a") ("b" "b")))))
 
 ;;; Test rule introspection
 

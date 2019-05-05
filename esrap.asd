@@ -82,6 +82,8 @@
   :in-order-to      ((test-op (test-op "esrap/tests"))))
 
 (defmethod perform :after ((op load-op) (sys (eql (find-system "esrap"))))
+  ;; Since version 0.19
+  ;; * DEFRULE accepts a :USE-CACHE option
   ;; Since version 0.16
   ;; * DEFRULE accepts an :ERROR-REPORT option
   ;; Since version 0.15
