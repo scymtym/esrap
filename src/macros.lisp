@@ -241,54 +241,62 @@ for use with IGNORE."
             (funcall error-report) (funcall use-cache))))
 
 (defun expand-transforms (transforms)
-  (labels
-      ((make-transform-body (start end start-var end-var ignore body)
-         (let* ((start-end-vars (list start-var end-var))
-                (other-ignore (set-difference ignore start-end-vars)))
-           (multiple-value-bind (forms declarations) (parse-body body)
-             `(,@(when other-ignore `((declare (ignore ,@other-ignore))))
-               ,@declarations
-               (let (,@(unless (member start-var ignore :test #'eq)
-                         `((,start-var ,start)))
-                     ,@(unless (member end-var ignore :test #'eq)
-                         `((,end-var ,end))))
-                 ,@forms)))))
-       (process-option (options start end production)
-         (destructuring-bind (&optional option &rest rest) options
-           (unless option
-             (return-from process-option (values production t)))
-           (destructuring-ecase option
-             ((:constant value)
-              (process-option rest start end `(progn ,production ,value)))
-             ((:identity value)
-              (declare (ignore value))
-              (process-option rest start end production))
-             ((:text value)
-              (declare (ignore value))
-              (process-option rest start end `(text ,production)))
-             ((:function designator)    ; TODO resolve-function?
-              (values
-               (process-option rest start end `(,designator ,production))
-               t))
-             ((:lambda lambda-list start-var end-var ignore forms)
-              (values (process-option
-                       rest start end
-                       `((lambda ,lambda-list
-                           ,@(make-transform-body
-                              start end start-var end-var ignore forms))
-                         ,production))
-                      t))
-             ((:destructure lambda-list start-var end-var ignore forms)
-              (values (process-option
-                       rest start end
-                       `(destructuring-bind ,lambda-list ,production
-                          ,@(make-transform-body
-                             start end start-var end-var ignore forms)))
-                      t))))))
-    (with-gensyms (production start end)
-      (multiple-value-bind (form production-used-p)
-          (process-option (reverse transforms) start end production)
-        `(lambda (,production ,start ,end)
-           (declare ,@(unless production-used-p `((ignore ,production)))
-                    (ignorable ,start ,end))
-           ,form)))))
+  (let ((production-used-p t)
+        (identityp t)
+        (constantp nil)
+        (textp nil))
+    (labels
+        ((make-transform-body (start end start-var end-var ignore body)
+           (let* ((start-end-vars (list start-var end-var))
+                  (other-ignore (set-difference ignore start-end-vars)))
+             (multiple-value-bind (forms declarations) (parse-body body)
+               `(,@(when other-ignore `((declare (ignore ,@other-ignore))))
+                 ,@declarations
+                 (let (,@(unless (member start-var ignore :test #'eq)
+                           `((,start-var ,start)))
+                       ,@(unless (member end-var ignore :test #'eq)
+                           `((,end-var ,end))))
+                   ,@forms)))))
+         (process-option (options start end production)
+           (destructuring-bind (&optional option &rest rest) options
+             (unless option
+               (return-from process-option production))
+             (destructuring-ecase option
+               ((:constant value)
+                (setf production-used-p nil identityp nil constantp t)
+                (process-option rest start end value))
+               ((:identity value)
+                (declare (ignore value))
+                (process-option rest start end production))
+               ((:text value)
+                (setf textp (and value identityp)
+                      identityp nil)
+                (process-option rest start end `(text ,production)))
+               ((:function designator)  ; TODO resolve-function?
+                (setf identityp nil constantp nil)
+                (process-option rest start end `(,designator ,production)))
+               ((:lambda lambda-list start-var end-var ignore forms)
+                (setf identityp nil constantp nil)
+                (process-option
+                 rest start end
+                 `((lambda ,lambda-list
+                     ,@(make-transform-body
+                        start end start-var end-var ignore forms))
+                   ,production)))
+               ((:destructure lambda-list start-var end-var ignore forms)
+                (setf identityp nil constantp nil)
+                (process-option
+                 rest start end
+                 `(destructuring-bind ,lambda-list ,production
+                    ,@(make-transform-body
+                       start end start-var end-var ignore forms))))))))
+      (with-gensyms (production start end)
+        (let ((form (process-option (reverse transforms) start end production)))
+          (values
+           `(lambda (,production ,start ,end)
+              (declare ,@(unless production-used-p `((ignore ,production)))
+                       (ignorable ,start ,end))
+              ,form)
+           identityp
+           constantp
+           textp))))))
