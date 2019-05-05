@@ -1,4 +1,4 @@
-;;;; Copyright (c) 2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2017, 2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -80,3 +80,38 @@
           (expression-dependencies.2 (expression-dependencies.3
                                       expression-dependencies.2))
           (expression-dependencies.3 (expression-dependencies.3)))))
+
+(test expression-simple-p
+  "Smoke test for the EXPRESSION-SIMPLE-P function."
+
+  (mapc (destructuring-lambda ((expression expected))
+          (is (equal expected (expression-simple-p
+                               expression
+                               :depth-limit                 2
+                               :string-length-limit         3
+                               :character-ranges-size-limit 3))))
+        '((character                      t)
+          ((character-ranges #\a #\b)     t)
+          ((character-ranges #\a #\b #\c) nil)
+          ((string 2)                     t)
+          ((string 3)                     nil)
+          ((and #\c)                      t)
+          ((and (and #\c))                nil)
+          ((or #\c)                       t)
+          ((or (and #\c))                 nil)
+          ((not #\c)                      t)
+          ((not (and #\c))                nil)
+          ((< 1 #\c)                      t)
+          ((< 1 (and #\c))                nil)
+          ((> 1 #\c)                      t)
+          ((> 1 (and #\c))                nil)
+          (#\c                            t)
+          ("ab"                           t)
+          ("abc"                          nil)
+          ((~ "ab")                       t)
+          ((and (~ "ab"))                 t)
+          ((and (and (~ "ab")))           nil)
+          ;;
+          (foo                            nil)
+          ((foo-p "bar")                  nil)
+          (#'digit-char-p                 nil))))

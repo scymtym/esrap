@@ -29,6 +29,7 @@
   (:import-from #:esrap
    #:%expression-direct-dependencies
    #:%expression-dependencies
+   #:expression-simple-p
 
    #:expand-transforms)
 

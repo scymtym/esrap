@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2018 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -290,6 +290,34 @@ but clause heads designate kinds of expressions instead of types. See
                 (equalp left right)))))
     (declare (dynamic-extent #'rec))
     (rec left right)))
+
+(defun expression-simple-p (expression &key
+                                       (depth-limit 3)
+                                       (string-length-limit 4)
+                                       (character-ranges-size-limit 10))
+  (labels ((rec (expression depth)
+             (when (< depth depth-limit)
+               (expression-case expression
+                 (character
+                  t)
+                 (character-ranges
+                  (< (length (rest expression)) character-ranges-size-limit))
+                 (string
+                  (< (second expression) string-length-limit))
+                 ((and or)
+                  (every (rcurry #'rec (1+ depth)) (rest expression)))
+                 ((not ? & !)
+                  (rec (second expression) (1+ depth)))
+                 ((< >)
+                  (rec (third expression) (1+ depth)))
+                 (terminal
+                  (etypecase expression
+                    (character      t)
+                    (string         (< (length expression) string-length-limit))
+                    ((cons (eql ~)) (rec (second expression) depth))))
+                 (t
+                  nil)))))
+    (rec expression 0)))
 
 (defun describe-terminal (terminal &optional (stream *standard-output*))
   "Print a description of TERMINAL onto STREAM.
