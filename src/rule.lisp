@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -18,6 +18,32 @@
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (cl:in-package #:esrap)
+
+;;; RULE PROPERTIES
+
+(macrolet
+    ((define (&body properties)
+       (let ((symbol+index
+               (loop :for property :in properties
+                     :for index :from 0
+                     :collect (list property index))))
+         `(progn
+            (declaim (inline make-rule-properties rule-property-p))
+            (defun make-rule-properties (&key ,@properties)
+              (logior ,@(map 'list (lambda (entry)
+                                     (destructuring-bind (symbol index) entry
+                                       `(if ,symbol ,(ash 1 index) 0)))
+                             symbol+index)))
+            (defun rule-property-p (properties property)
+              ,(when properties
+                 `(logbitp
+                   (ecase property
+                     ,@(map 'list (lambda (entry)
+                                    (destructuring-bind (symbol index) entry
+                                      `(,(make-keyword symbol) ,index)))
+                        symbol+index))
+                   properties)))))))
+  (define))
 
 ;;; RULE REPRESENTATION AND STORAGE
 ;;;
@@ -140,7 +166,13 @@
    (%error-report :initarg :error-report
                   :type rule-error-report
                   :reader rule-error-report
-                  :initform t)))
+                  :initform t)
+   ;; Used to characterize the rule (e.g. may the rule be inlined?
+   ;; should the rule use the packrat cache?) and its transform
+   ;; (e.g. is the transform constant/the identity/text?).
+   (%properties :initarg :properties
+                :reader rule-properties
+                :initform (make-rule-properties))))
 
 (setf (documentation 'rule-symbol 'function)
       "Returns the nonterminal associated with the RULE, or NIL if the
