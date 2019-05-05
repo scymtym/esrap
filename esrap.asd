@@ -120,7 +120,9 @@
                               (:file "util")
 
                               (:file "expressions")
+                              (:file "macros")
                               (:file "tests")
+
                               (:file "stress")
 
                               (:file "examples")
