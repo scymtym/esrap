@@ -63,7 +63,7 @@ characters."
 ;;; Rule-related types
 
 (deftype cache-policy ()
-  '(member nil t))
+  '(member nil t :unless-trivial))
 
 (deftype error-report-part ()
   "Named part of a parse error report."

@@ -197,10 +197,14 @@ Following OPTIONS can be specified:
     This option can be used to safely track nesting depth, manage symbol
     tables or for other stack-like operations.
 
-  * (:USE-CACHE BOOLEAN)
+  * (:USE-CACHE ( T | NIL | :UNLESS-TRIVIAL ))
 
-    Defaults to T if not provided. Controls whether the rule should be
-    compiled with caching.
+    Defaults to :UNLESS-TRIVIAL if not provided. Controls whether the
+    rule should be compiled with caching. :UNLESS-TRIVIAL
+    automatically disables caching if 1) it doesn't change the
+    behavior of the rule (see below) 2) the expression of the rule is
+    simple enough to guarantee that disabling caching will improve
+    performance.
 
     For rules with simple expressions, the overhead of cache lookup
     and update can by far exceed the cost of simply evaluating the
@@ -245,18 +249,24 @@ Following OPTIONS can be specified:
 "
   (multiple-value-bind (transforms around when error-report use-cache)
       (parse-defrule-options options form)
-    (let ((transform (expand-transforms transforms))
-          (properties (make-rule-properties
-                       :uses-cache use-cache)))
-      `(eval-when (:load-toplevel :execute)
-         (add-rule ',symbol (make-instance 'rule
-                                           :expression ',expression
-                                           :guard-expression ',(cdr when)
-                                           :condition ,(car when)
-                                           :transform ,transform
-                                           :around ,around
-                                           :error-report ,error-report
-                                           :properties ,properties))))))
+    (multiple-value-bind
+          (transform transform-identity-p transform-constant-p transform-text-p)
+        (expand-transforms transforms)
+      (let ((properties (make-rule-properties
+                         :uses-cache use-cache
+                         :uses-cache-unless-trivial (eq use-cache :unless-trivial)
+                         :transform-identity transform-identity-p
+                         :transform-constant transform-constant-p
+                         :transform-text transform-text-p)))
+        `(eval-when (:load-toplevel :execute)
+           (add-rule ',symbol (make-instance 'rule
+                                             :expression ',expression
+                                             :guard-expression ',(cdr when)
+                                             :condition ,(car when)
+                                             :transform ,transform
+                                             :around ,around
+                                             :error-report ,error-report
+                                             :properties ,properties)))))))
 
 (defun add-rule (symbol rule)
   "Associates RULE with the nonterminal SYMBOL. Signals an error if the

@@ -180,7 +180,7 @@ for use with IGNORE."
         (error-report (singleton-option 'defrule form :error-report
                                         'rule-error-report :default t))
         (use-cache (singleton-option 'defrule form :use-cache
-                                     'cache-policy :default t)))
+                                     'cache-policy :default :unless-trivial)))
     (dolist (option options)
       (with-current-source-form (option)
         (destructuring-ecase option

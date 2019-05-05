@@ -884,17 +884,22 @@
     #\b
   (:use-cache t))
 
+(defrule uncached.3
+    #\c
+  (:use-cache :unless-trivial))
+
 (defrule uncached
-    (and (+ uncached.1) (+ uncached.2)))
+    (and (+ uncached.1) (+ uncached.2) (+ uncached.3)))
 
 (test-both-modes uncached
   "Test uncached rules."
   (flet ((test-case (input expected)
            (is (equal expected (parse 'uncached input)))))
-    (test-case "ab"   '(("a")     ("b")))
-    (test-case "aab"  '(("a" "a") ("b")))
-    (test-case "abb"  '(("a")     ("b" "b")))
-    (test-case "aabb" '(("a" "a") ("b" "b")))))
+    (test-case "abc"    '(("a")     ("b")     ("c")))
+    (test-case "aabc"   '(("a" "a") ("b")     ("c")))
+    (test-case "abbc"   '(("a")     ("b" "b") ("c")))
+    (test-case "abcc"   '(("a")     ("b")     ("c" "c")))
+    (test-case "aabbcc" '(("a" "a") ("b" "b") ("c" "c")))))
 
 ;;; Test rule introspection
 

@@ -42,7 +42,11 @@
                                   `(,(make-keyword symbol) ,index)))
                     symbol+index))
                properties))))))
-  (define uses-cache))
+  (define uses-cache
+          uses-cache-unless-trivial
+          transform-identity
+          transform-constant
+          transform-text))
 
 ;;; RULE REPRESENTATION AND STORAGE
 ;;;

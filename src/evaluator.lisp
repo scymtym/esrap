@@ -40,6 +40,14 @@
 
 (defvar *current-rule* nil)
 
+(defun rule-trivial-p (expression condition transform around properties)
+  (and (expression-simple-p expression)
+       (typep condition 'boolean)
+       (or (not transform)
+           (rule-property-p properties :transform-identity)
+           (rule-property-p properties :transform-constant))
+       (not around)))
+
 (defun compile-rule (symbol expression condition transform around properties)
   (declare (type (or boolean function) condition transform around))
   (let* ((*current-rule* symbol)
@@ -48,10 +56,17 @@
          ;; We use a single static INACTIVE-RULE instance to represent
          ;; (error) results produced by inactive rules. The actual
          ;; error position has to be added in a post-processing step.
-         (rule-not-active (make-inactive-rule symbol 0)))
+         (rule-not-active (make-inactive-rule symbol 0))
+         (use-cache (cond ((not (rule-property-p properties :uses-cache))
+                           nil)
+                          ((not (rule-property-p properties :uses-cache-unless-trivial))
+                           t)
+                          (t
+                           (not (rule-trivial-p
+                                 expression condition transform around properties))))))
     (macrolet
         ((named-lambda/cache-variants (name lambda-list &body body)
-           `(if (rule-property-p properties :uses-cache)
+           `(if use-cache
                 (named-lambda ,name ,lambda-list ,@body)
                 (named-lambda ,name ,lambda-list
                   (macrolet ((with-cached-result
