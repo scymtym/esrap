@@ -28,6 +28,9 @@
                      :for index :from 0
                      :collect (list property index))))
          `(progn
+            (deftype rule-properties/packed ()
+              '(unsigned-byte ,(length properties)))
+
             (declaim (inline make-rule-properties rule-property-p))
             (defun make-rule-properties (&key ,@properties)
               (logior ,@(map 'list (lambda (entry)
@@ -174,6 +177,7 @@
    ;; should the rule use the packrat cache?) and its transform
    ;; (e.g. is the transform constant/the identity/text?).
    (%properties :initarg :properties
+                :type rule-properties/packed
                 :reader rule-properties
                 :initform (make-rule-properties))))
 
