@@ -34,9 +34,9 @@
 
   License
 
-    #+begin_example
+    #+BEGIN_EXAMPLE
     Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-    Copyright (c) 2012-2017 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+    Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 
     Permission is hereby granted, free of charge, to any person
     obtaining a copy of this software and associated documentation
@@ -54,11 +54,11 @@
     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
-    #+end_example
+    #+END_EXAMPLE
 
 * Syntax Overview
 
-  #+begin_example
+  #+BEGIN_EXAMPLE
   <literal>                   -- case-sensitive terminal
   (~ <literal>)               -- case-insensitive terminal
   character                   -- any single character
@@ -78,22 +78,22 @@
   (! <expr>)                  -- not-followed-by; does not consume
   (< <amount> <expr>)         -- lookbehind <amount> characters; does not consume
   (> <amount> <expr>)         -- lookahead <amount> characters; does not consume
-  #+end_example
+  #+END_EXAMPLE
 
 * Trivial Examples
 
-  #+begin_src lisp :results none :exports none :session "doc"
+  #+BEGIN_SRC lisp :results silent :exports both :session "doc"
     (ql:quickload :esrap)
-  #+end_src
+  #+END_SRC
 
   The =parse= function takes an expression:
-  #+begin_src lisp :results value code :exports both :session "doc"
+
+  #+BEGIN_SRC lisp :results value :exports both :session "doc"
     (multiple-value-list (esrap:parse '(or "foo" "bar") "foo"))
-  #+end_src
+  #+END_SRC
 
   #+RESULTS:
   #+BEGIN_SRC lisp
-
   ("foo" NIL T)
   #+END_SRC
 
@@ -102,28 +102,31 @@
   Normally you'd use the declarative =defrule= interface to define new
   rules, but everything it does can be done directly by building
   instances of the =rule= class and using =add-rule= to activate them.
-  #+begin_src lisp :results value code :exports both :session "doc"
+
+  #+BEGIN_SRC lisp :results value :exports both :session "doc"
     (progn
       (esrap:add-rule 'foo+ (make-instance 'esrap:rule :expression '(+ "foo")))
 
       (multiple-value-list (esrap:parse 'foo+ "foofoofoo")))
-  #+end_src
+  #+END_SRC
 
   #+RESULTS:
   #+BEGIN_SRC lisp
-
   (("foo" "foo" "foo") NIL T)
   #+END_SRC
 
   The equivalent =defrule= form is
-  #+begin_src lisp :results value code :exports code :session "doc"
-    (esrap:defrule foo+ '(+ "foo"))
-  #+end_src
+
+  #+BEGIN_SRC lisp :results silent :exports code :session "doc"
+    (esrap:defrule foo+ (+ "foo"))
+  #+END_SRC
+
   Note that rules can be redefined, i.e. this =defrule= form replaces
   the previous definition of the =foo+= rule.
 
   Rules can transform their matches:
-  #+begin_src lisp :results silent :exports code :session "doc"
+
+  #+BEGIN_SRC lisp :results silent :exports code :session "doc"
     (esrap:add-rule
      'decimal
      (make-instance
@@ -132,22 +135,24 @@
       :transform (lambda (list start end)
                    (declare (ignore start end))
                    (parse-integer (format nil "~{~A~}" list)))))
-  #+end_src
+  #+END_SRC
 
   or using =defrule=
-  #+begin_src lisp :results value code :exports code :session "doc"
+
+  #+BEGIN_SRC lisp :results silent :exports both :session "doc"
     (esrap:defrule decimal
         (+ (or "0" "1" "2" "3" "4" "5" "6" "7" "8" "9"))
       (:lambda (list)
         (parse-integer (format nil "~{~A~}" list))))
-  #+end_src
+  #+END_SRC
 
   Any lisp function can be used as a semantic predicate:
-  #+begin_src lisp :results value code :exports both :session "doc"
+
+  #+BEGIN_SRC lisp :results value :exports both :session "doc"
     (list
      (multiple-value-list (esrap:parse '(oddp decimal) "123"))
      (multiple-value-list (esrap:parse '(evenp decimal) "123" :junk-allowed t)))
-  #+end_src
+  #+END_SRC
 
   #+RESULTS:
   #+BEGIN_SRC lisp

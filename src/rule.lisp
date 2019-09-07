@@ -27,7 +27,7 @@
                (loop :for property :in properties
                      :for index :from 0
                      :collect (list property index))))
-         `(progn
+         `(eval-when (:compile-toplevel :load-toplevel :execute)
             (deftype rule-properties/packed ()
               '(unsigned-byte ,(length properties)))
 
@@ -50,6 +50,13 @@
           transform-identity
           transform-constant
           transform-text))
+
+(defconstant +default-rule-properties+
+  (make-rule-properties :uses-cache t
+                        :uses-cache-unless-trivial t
+                        :transform-identity nil
+                        :transform-constant nil
+                        :transform-text nil))
 
 ;;; RULE REPRESENTATION AND STORAGE
 ;;;
@@ -179,7 +186,7 @@
    (%properties :initarg :properties
                 :type rule-properties/packed
                 :reader rule-properties
-                :initform (make-rule-properties))))
+                :initform +default-rule-properties+)))
 
 (setf (documentation 'rule-symbol 'function)
       "Returns the nonterminal associated with the RULE, or NIL if the
