@@ -1181,3 +1181,9 @@ satisfying DIGIT-CHAR-P")
 "
                (parse-with-trace 'integer "123")))
   (untrace-rule 'integer))
+
+(test untrace-all-rules.smoke
+  "Smoke test for the UNTRACE-ALL-RULES function."
+  (trace-rule 'integer)
+  (untrace-all-rules)
+  (is (emptyp (parse-with-trace 'integer "123"))))

@@ -448,6 +448,10 @@ with TRACE-RULE."
                        (undefined-rule symbol))
                    recursive))))
 
+(defun untrace-all-rules ()
+  "Turn off tracing of all nonterminals."
+  (maphash-keys #'untrace-rule *rules*))
+
 (defun rule-expression (rule)
   "Return the parsing expression associated with the RULE."
   (slot-value rule '%expression))
