@@ -1068,46 +1068,46 @@ satisfying DIGIT-CHAR-P")
 
     ;; Smoke test 1.
     (test-case 'integer '() 'integer "123"
-               "1: INTEGER 0?
+               "1: INTEGER 0[123]?
 1: INTEGER 0-3 -> 123
 ")
 
     ;; Smoke test 2.
     (test-case 'beginning-of-input '(:recursive t) 'beginning-of-input ""
-               "1: BEGINNING-OF-INPUT 0?
+               "1: BEGINNING-OF-INPUT 0[]?
 1: BEGINNING-OF-INPUT 0-0 -> :BEGINNING-OF-INPUT
 ")
 
     ;; Smoke test 3.
     (test-case 'integer '(:recursive t) 'integer "12"
-               "1: INTEGER 0?
- 2: WHITESPACE 0?
+               "1: INTEGER 0[12]?
+ 2: WHITESPACE 0[12]?
  2: WHITESPACE -|
- 2: DIGITS 0?
+ 2: DIGITS 0[12]?
  2: DIGITS 0-2 -> \"12\"
- 2: WHITESPACE 2?
+ 2: WHITESPACE 2[12]?
  2: WHITESPACE -|
 1: INTEGER 0-2 -> 12
 ")
 
     ;; Depth-limited recursive tracing.
     (test-case 'list-of-integers '(:recursive 1) 'list-of-integers "12, 13"
-               "1: LIST-OF-INTEGERS 0?
- 2: INTEGER 0?
+               "1: LIST-OF-INTEGERS 0[12,]?
+ 2: INTEGER 0[12,]?
  2: INTEGER 0-2 -> 12
- 2: LIST-OF-INTEGERS 3?
-  3: INTEGER 3?
+ 2: LIST-OF-INTEGERS 3[2, 13]?
+  3: INTEGER 3[2, 13]?
   3: INTEGER 3-6 -> 13
-  3: INTEGER 3?
+  3: INTEGER 3[2, 13]?
   3: INTEGER 3-6 -> 13
-  3: INTEGER 6?
+  3: INTEGER 6[13]?
   3: INTEGER -|
-  3: INTEGER 6?
+  3: INTEGER 6[13]?
   3: INTEGER -|
  2: LIST-OF-INTEGERS 3-6 -> (13)
- 2: INTEGER 6?
+ 2: INTEGER 6[13]?
  2: INTEGER -|
- 2: INTEGER 6?
+ 2: INTEGER 6[13]?
  2: INTEGER -|
 1: LIST-OF-INTEGERS 0-6 -> (12 13)
 ")
@@ -1115,12 +1115,12 @@ satisfying DIGIT-CHAR-P")
     ;; Left-recursive rule - non-recursive tracing.
     (test-case 'left-recursion.direct '()
                'left-recursion.direct "rl"
-               "1: LEFT-RECURSION.DIRECT 0?
- 2: LEFT-RECURSION.DIRECT 0?
+               "1: LEFT-RECURSION.DIRECT 0[rl]?
+ 2: LEFT-RECURSION.DIRECT 0[rl]?
  2: LEFT-RECURSION.DIRECT -|
- 2: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT 0[rl]?
  2: LEFT-RECURSION.DIRECT 0-1 -> \"r\"
- 2: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT 0[rl]?
  2: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
 1: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
 ")
@@ -1128,12 +1128,12 @@ satisfying DIGIT-CHAR-P")
     ;; Left-recursive rule - recursive tracing.
     (test-case 'left-recursion.direct '(:recursive t)
                'left-recursion.direct "rl"
-               "1: LEFT-RECURSION.DIRECT 0?
- 2: LEFT-RECURSION.DIRECT 0?
+               "1: LEFT-RECURSION.DIRECT 0[rl]?
+ 2: LEFT-RECURSION.DIRECT 0[rl]?
  2: LEFT-RECURSION.DIRECT -|
- 2: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT 0[rl]?
  2: LEFT-RECURSION.DIRECT 0-1 -> \"r\"
- 2: LEFT-RECURSION.DIRECT 0?
+ 2: LEFT-RECURSION.DIRECT 0[rl]?
  2: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
 1: LEFT-RECURSION.DIRECT 0-2 -> (\"r\" \"l\")
 ")
@@ -1143,7 +1143,7 @@ satisfying DIGIT-CHAR-P")
                                        (declare (ignore symbol text end))
                                        (= position 0)))
                'list-of-integers "123, 123"
-               "1: DIGITS 0?
+               "1: DIGITS 0[123]?
 1: DIGITS 0-3 -> \"123\"
 ")))
 
@@ -1176,7 +1176,7 @@ satisfying DIGIT-CHAR-P")
   "Test tracing an already-traced rule."
   (trace-rule 'integer)
   (trace-rule 'integer)
-  (is (string= "1: INTEGER 0?
+  (is (string= "1: INTEGER 0[123]?
 1: INTEGER 0-3 -> 123
 "
                (parse-with-trace 'integer "123")))
