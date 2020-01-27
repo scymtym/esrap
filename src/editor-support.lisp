@@ -35,3 +35,17 @@
     t))
 
 (hint-slime-indentation)
+
+(defun hint-sly-indentation ()
+  (unless (member "SLYNK/INDENTATION" *modules* :test #'string=)
+    (return-from hint-sly-indentation))
+  (when-let* ((slynk (find-package :slynk))
+              (tables (find-symbol (string '#:*application-hints-tables*) slynk))
+              (table (make-hash-table :test #'eq)))
+    (setf (gethash 'defrule table)
+          '(4 4 &rest (&whole 2 &lambda &body)))
+    (set tables (cons table (remove *indentation-hint-table* (symbol-value tables))))
+    (setf *indentation-hint-table* table)
+    t))
+
+(hint-sly-indentation)
