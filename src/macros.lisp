@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2020 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -249,14 +249,13 @@ for use with IGNORE."
         ((make-transform-body (start end start-var end-var ignore body)
            (let* ((start-end-vars (list start-var end-var))
                   (other-ignore (set-difference ignore start-end-vars)))
-             (multiple-value-bind (forms declarations) (parse-body body)
-               `(,@(when other-ignore `((declare (ignore ,@other-ignore))))
-                 ,@declarations
-                 (let (,@(unless (member start-var ignore :test #'eq)
-                           `((,start-var ,start)))
-                       ,@(unless (member end-var ignore :test #'eq)
-                           `((,end-var ,end))))
-                   ,@forms)))))
+             (values
+              `(,@(when other-ignore `((declare (ignore ,@other-ignore))))
+                ,@body)
+              `(,@(unless (member start-var ignore :test #'eq)
+                    `((,start-var ,start)))
+                ,@(unless (member end-var ignore :test #'eq)
+                    `((,end-var ,end)))))))
          (process-option (options start end production)
            (destructuring-bind (&optional option &rest rest) options
              (unless option
@@ -277,19 +276,24 @@ for use with IGNORE."
                 (process-option rest start end `(,designator ,production)))
                ((:lambda lambda-list start-var end-var ignore forms)
                 (setf identityp nil constantp nil)
-                (process-option
-                 rest start end
-                 `((lambda ,lambda-list
-                     ,@(make-transform-body
-                        start end start-var end-var ignore forms))
-                   ,production)))
+                (multiple-value-bind (body bindings)
+                    (make-transform-body
+                     start end start-var end-var ignore forms)
+                  (process-option
+                   rest start end
+                   `((lambda (,@lambda-list &aux ,@bindings)
+                       ,@body)
+                     ,production))))
                ((:destructure lambda-list start-var end-var ignore forms)
                 (setf identityp nil constantp nil)
-                (process-option
-                 rest start end
-                 `(destructuring-bind ,lambda-list ,production
-                    ,@(make-transform-body
-                       start end start-var end-var ignore forms))))))))
+                (multiple-value-bind (body bindings)
+                    (make-transform-body
+                     start end start-var end-var ignore forms)
+                  (process-option
+                   rest start end
+                   `(destructuring-bind (,@lambda-list &aux ,@bindings)
+                        ,production
+                      ,@body))))))))
       (with-gensyms (production start end)
         (let ((form (process-option (reverse transforms) start end production)))
           (values

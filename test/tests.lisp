@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2020 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -59,7 +59,12 @@
     (does-not-warn style-warning
       (defrule foo (and)
         (:function second)
-        (:lambda (x) (declare (ignore x)))))))
+        (:lambda (x) (declare (ignore x)))))
+    (does-not-warn style-warning
+      (defrule foo (and)
+        (:lambda (x &bounds start end)
+          (declare (ignore start))
+          (values x end))))))
 
 (test defrule.style-warnings
   "Test signaling of style-warnings from DEFRULE."
