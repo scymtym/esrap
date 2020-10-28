@@ -96,22 +96,17 @@
 ;;; Ex. 2. Using CL:READ to parse lisp.
 
 (defun parse-using-read (text position end)
-  (handler-case
-      ;; When successful, READ-FROM-STRING returns the read object and
-      ;; the position up to which TEXT has been consumed.
-      (read-from-string text t nil :start position :end end)
-    ;; When READ-FROM-STRING fails, indicate the parse failure,
-    ;; including CONDITION as explanation.
-    (stream-error (condition)
-      ;; For STREAM-ERRORs, we can try to determine and return the
-      ;; exact position of the failure.
-      (let ((position (ignore-errors
-                       (file-position (stream-error-stream condition)))))
-        (values nil position condition)))
-    (error (condition)
-      ;; For general ERRORs, we cannot determine the exact position of
-      ;; the failure.
-      (values nil nil condition))))
+  (with-input-from-string (stream text :start position :end end)
+    (handler-case
+        ;; When successful, READ returns the read object and the
+        ;; position up to which TEXT has been consumed.
+        (read stream t nil)
+      ;; When READ-FROM-STRING fails, indicate the parse failure,
+      ;; including CONDITION as explanation.
+      (error (condition)
+        ;; We try to determine the position of the parse failure using
+        ;; the stream position.
+        (values nil (file-position stream) condition)))))
 
 (defrule common-lisp #'parse-using-read)
 
