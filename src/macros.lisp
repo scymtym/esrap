@@ -55,19 +55,6 @@ Catenates all the strings in arguments into a single string."
          (setf value-seen t
                value new-value))))))
 
-;;; http://jcsu.jesus.cam.ac.uk/~csr21/papers/features.pdf
-(eval-when (:compile-toplevel :execute)
-  (when (and (find-package '#:sb-ext)
-             (find-symbol (string '#:with-current-source-form) '#:sb-ext))
-    (pushnew 'sb-ext-with-current-source-form *features*)))
-
-(defmacro with-current-source-form ((&rest forms) &body body)
-  #-esrap::sb-ext-with-current-source-form (declare (ignore forms))
-  #+esrap::sb-ext-with-current-source-form
-  `(sb-ext:with-current-source-form (,@forms) ,@body)
-  #-esrap::sb-ext-with-current-source-form
-  `(progn ,@body))
-
 ;;; DEFRULE support functions
 
 (defun parse-lambda-list-maybe-containing-&bounds (lambda-list)

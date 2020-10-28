@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2020 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -42,7 +42,8 @@
   :bug-tracker      "https://github.com/scymtym/esrap/issues"
   :source-control   (:git "https://github.com/scymtym/esrap.git")
   :licence          "MIT"
-  :depends-on       ("alexandria")
+  :depends-on       ("alexandria"
+                     "trivial-with-current-source-form")
   :components       ((:module     "early"
                       :pathname   "src"
                       :serial     t
