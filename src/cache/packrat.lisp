@@ -1,4 +1,4 @@
-;;;; Copyright (c) 2017-2019 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2017-2021 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -66,12 +66,12 @@
     (cond ((null cell)
            nil)
           ((not (consp cell))
-           (gethash symbol cell))
+           (values (gethash symbol cell)))
           ((not (consp (cdr cell)))
            (when (eq (car cell) symbol)
              (cdr cell)))
           (t
-           (assoc-value (cdr cell) symbol :test #'eq)))))
+           (values (assoc-value (cdr cell) symbol :test #'eq))))))
 
 (declaim (ftype (function (t symbol input-position chunk-cache) (values t &optional))
                 (setf cached)))
