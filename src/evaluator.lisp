@@ -21,7 +21,7 @@
 
 ;;; Utilities
 
-(declaim (ftype (function * (values function &optional))
+(declaim (ftype (function (t t t) (values function &optional))
                 resolve-function))
 
 (defun resolve-function (name arguments expression)
@@ -165,7 +165,7 @@
     (predicate
      (eval-semantic-predicate expression text position end))))
 
-(declaim (ftype (function (*) (values function &optional)) compile-expression))
+(declaim (ftype (function (t) (values function &optional)) compile-expression))
 (defun compile-expression (expression)
   (expression-case expression
     (character        (compile-character))
@@ -221,7 +221,7 @@
          expression limit nil (subseq text position limit))
         (make-failed-parse expression end nil))))
 
-(declaim (ftype (function (* string input-position input-length)
+(declaim (ftype (function (t string input-position input-length)
                           (values result &optional))
                 eval-string))
 (defun eval-string (expression text position end)
@@ -298,7 +298,7 @@
              (match-terminal/case-insensitive-p
               string length text position end))))))))
 
-(declaim (ftype (function (* function string input-position input-length)
+(declaim (ftype (function (t function string input-position input-length)
                           (values result &optional))
                 exec-terminal-function))
 (defun exec-terminal-function (expression function text position end)
@@ -543,7 +543,7 @@
 
 ;;; Negations
 
-(declaim (ftype (function (function * string input-position input-position)
+(declaim (ftype (function (function t string input-position input-position)
                           (values result &optional))
                 exec-negation))
 (defun exec-negation (fun expr text position end)
@@ -729,7 +729,7 @@
 
 ;;; Character ranges
 
-(declaim (ftype (function (* * string input-position input-length)
+(declaim (ftype (function (t t string input-position input-length)
                           (values result &optional))
                 exec-character-ranges))
 (defun exec-character-ranges (expression ranges text position end)
