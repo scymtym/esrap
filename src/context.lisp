@@ -116,10 +116,11 @@
              (progn ,@body)
            (setf (context-nonterminal-stack ,context) ,previous))))))
 
-;;; SYMBOL and POSITION must all lexical variables!
+;;; SYMBOL and POSITION must all be lexical variables!
 (defmacro with-cached-result ((symbol position &optional (text nil)) &body forms)
   (with-gensyms (context cache heads result)
     `(flet ((do-it (position) ,@forms))
+       (declare (dynamic-extent #'do-it))
        (let* ((,context *context*)
               (,cache   (context-cache ,context))
               (,heads   (context-heads ,context))
