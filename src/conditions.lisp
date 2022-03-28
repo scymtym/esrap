@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2007-2013 Nikodemus Siivola <nikodemus@random-state.net>
-;;;; Copyright (c) 2012-2016 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
+;;;; Copyright (c) 2012-2022 Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 ;;;;
 ;;;; Permission is hereby granted, free of charge, to any person
 ;;;; obtaining a copy of this software and associated documentation files
@@ -103,7 +103,8 @@ the error occurred."))
              :initform nil))
   (:default-initargs :result (required-argument :result))
   (:documentation
-   "This error is signaled when a parse attempt fails in a way that ."))
+   "This error is signaled when a parse attempt fails because the input
+text does not conform to the grammar."))
 
 (defmethod esrap-error-position ((condition esrap-parse-error))
   (result-position (esrap-parse-error-context condition)))
