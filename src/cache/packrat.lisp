@@ -73,6 +73,17 @@
           (t
            (values (assoc-value (cdr cell) symbol :test #'eq))))))
 
+;;; Like ALEXANDRIA:ALIST-HASH-TABLE but quicker because it assumes
+;;; that there are no duplicate keys (of which alists prefer the
+;;; first) and it allows the call to MAKE-HASH-TABLE to be optimized.
+(defmacro alist-hash-table/no-dups (alist &rest hash-table-initargs)
+  (declare (optimize speed))
+  (with-gensyms (table cons)
+    `(let ((,table (make-hash-table ,@hash-table-initargs)))
+       (dolist (,cons ,alist)
+         (setf (gethash (car ,cons) ,table) (cdr ,cons)))
+       ,table)))
+
 (declaim (ftype (function (t symbol input-position chunk-cache) (values t &optional))
                 (setf cached)))
 (defun (setf cached) (result symbol position cache)
@@ -115,8 +126,10 @@
                ;; entries and we need another one, upgrade to
                ;; HASH-TABLE, then store the new entry.
                ((= count +packrat-hash-table-switch-point+)
-                (let ((table (setf (aref chunk position-2)
-                                   (alist-hash-table entries :test #'eq))))
+                (let ((table (alist-hash-table/no-dups
+                              entries :test #'eq
+                              :size #.(* 2 +packrat-hash-table-switch-point+))))
+                  (setf (aref chunk position-2) table)
                   (setf (gethash symbol table) result)))
                ;; When there are less than
                ;; +PACKRAT-HASH-TABLE-SWITCH-POINT+ entries and we
