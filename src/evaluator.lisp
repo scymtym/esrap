@@ -133,8 +133,8 @@
                    do (return-from translate sym))
            (error (format nil "unsupported operation - ~a" kw))))
     (if (and (consp expr))
-        (let ((sym (translate (car expr))))
-          (cons sym (mapcar #'translate-keywords (cdr expr))))
+        (cons (translate (car expr))
+              (mapcar #'translate-keywords (cdr expr)))
         expr)))
 
 (defun eval-expression (expression text position end)
