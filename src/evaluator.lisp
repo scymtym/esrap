@@ -129,14 +129,12 @@
   (flet ((translate (kw)
            (loop :for sym :in '(character terminal nonterminal string and or not * + ? & ! < >
                                 character-ranges function predicate)
-                 :when (string-equal (symbol-name sym)
-                                     (symbol-name kw))
+                 :when (string-equal sym kw)
                    do (return-from translate sym))
            (error (format nil "unsupported operation - ~a" kw))))
-    (if (and (consp expr)
-             (keywordp (car expr)))
-        (cons (translate (car expr))
-              (mapcar #'translate-keywords (cdr expr)))
+    (if (and (consp expr))
+        (let ((sym (translate (car expr))))
+          (cons sym (mapcar #'translate-keywords (cdr expr))))
         expr)))
 
 (defun eval-expression (expression text position end)
