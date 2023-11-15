@@ -125,45 +125,59 @@
                        rule-not-active))))))))))
 
 ;;; EXPRESSION COMPILER & EVALUATOR
+(defun translate-keywords (expr)
+  (flet ((translate (kw)
+           (loop :for sym :in '(character terminal nonterminal string and or not * + ? & ! < >
+                                character-ranges function predicate)
+                 :when (string-equal (symbol-name sym)
+                                     (symbol-name kw))
+                   do (return-from translate sym))
+           (error (format nil "unsupported operation - ~a" kw))))
+    (if (and (consp expr)
+             (keywordp (car expr)))
+        (cons (translate (car expr))
+              (mapcar #'translate-keywords (cdr expr)))
+        expr)))
 
 (defun eval-expression (expression text position end)
-  (expression-case expression
-    (character
-     (eval-character text position end))
-    (terminal
-     (if (consp expression)
-         (eval-terminal (string (second expression)) text position end nil)
-         (eval-terminal (string expression) text position end t)))
-    (nonterminal
-     (eval-nonterminal expression text position end))
-    (string
-     (eval-string expression text position end))
-    (and
-     (eval-sequence expression text position end))
-    (or
-     (eval-ordered-choise expression text position end))
-    (not
-     (eval-negation expression text position end))
-    (*
-     (eval-greedy-repetition expression text position end))
-    (+
-     (eval-greedy-positive-repetition expression text position end))
-    (?
-     (eval-optional expression text position end))
-    (&
-     (eval-followed-by expression text position end))
-    (!
-     (eval-not-followed-by expression text position end))
-    (<
-     (eval-look-behind expression text position end))
-    (>
-     (eval-look-ahead expression text position end))
-    (character-ranges
-     (eval-character-ranges expression text position end))
-    (function
-     (eval-terminal-function expression text position end))
-    (predicate
-     (eval-semantic-predicate expression text position end))))
+  (let ((expression (translate-keywords expression)))
+    (expression-case expression
+      (character
+       (eval-character text position end))
+      (terminal
+       (if (consp expression)
+           (eval-terminal (string (second expression)) text position end nil)
+           (eval-terminal (string expression) text position end t)))
+      (nonterminal
+       (eval-nonterminal expression text position end))
+      (string
+       (eval-string expression text position end))
+      (and
+       (eval-sequence expression text position end))
+      (or
+       (eval-ordered-choise expression text position end))
+      (not
+       (eval-negation expression text position end))
+      (*
+       (eval-greedy-repetition expression text position end))
+      (+
+          (eval-greedy-positive-repetition expression text position end))
+      (?
+       (eval-optional expression text position end))
+      (&
+       (eval-followed-by expression text position end))
+      (!
+       (eval-not-followed-by expression text position end))
+      (<
+       (eval-look-behind expression text position end))
+      (>
+       (eval-look-ahead expression text position end))
+      (character-ranges
+       (eval-character-ranges expression text position end))
+      (function
+       (eval-terminal-function expression text position end))
+      (predicate
+       (eval-semantic-predicate expression text position end)))))
 
 (declaim (ftype (function (t) (values function &optional)) compile-expression))
 (defun compile-expression (expression)
