@@ -127,8 +127,7 @@ text does not conform to the grammar."))
     (t
      (error-report (esrap-parse-error-context object) stream))))
 
-(declaim (ftype (function (string result) (values &optional nil))
-                esrap-parse-error))
+(declaim (ftype (function (string result) nil) esrap-parse-error))
 (defun esrap-parse-error (text result)
   (error 'esrap-parse-error
          :text   text
