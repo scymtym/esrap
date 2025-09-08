@@ -534,7 +534,7 @@
                (dolist (fun functions
                         (make-failed-parse/no-position
                          expression (nreverse errors)))
-                 (declare (type function fun))
+                 (declare (type (or function null) fun))
                  (let ((result (funcall fun text position end)))
                    (if (error-result-p result)
                        (push result errors)
